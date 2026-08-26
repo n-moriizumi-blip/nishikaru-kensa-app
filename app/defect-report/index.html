@@ -641,8 +641,15 @@ function startFreshEntry() {
 /**
  * 製造番号から得意先名・品番(図番)を検索する(GAS Web App の doGet?mode=lookup を呼ぶ)。
  * GAS_URL が未設定の間はモックデータを返す。
+ * 【2026-08-22改訂】QR読み取り直後の検索が失敗しやすいとの報告を受け、耐障害性を強化。
+ * ①1回のリクエストに10秒のタイムアウトを設け、GAS側の応答が遅い/固まった場合でも
+ * 待ち続けずに再試行へ移れるようにした(AbortController)。②通信エラー・タイムアウトの
+ * どちらでも、最大2回まで自動的に再試行する(900ms間隔)。工場内Wi-Fiの瞬断等、
+ * 一時的な通信不調による失敗はこれで大きく減るはず。3回とも失敗した場合のみユーザーに
+ * エラーを表示する(その場合は再スキャンが必要)。
  */
-function lookupByManufacturingNumber(mfgNo) {
+function lookupByManufacturingNumber(mfgNo, attempt) {
+  attempt = attempt || 1;
   if (!GAS_URL) {
     return new Promise(resolve => {
       setTimeout(() => {
@@ -653,8 +660,10 @@ function lookupByManufacturingNumber(mfgNo) {
       }, 500);
     });
   }
-  return fetch(GAS_URL + '?mode=lookup&mfgNo=' + encodeURIComponent(mfgNo))
-    .then(res => res.json())
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  return fetch(GAS_URL + '?mode=lookup&mfgNo=' + encodeURIComponent(mfgNo), { signal: controller.signal })
+    .then(res => { clearTimeout(timeoutId); return res.json(); })
     .then(data => {
       if (!data.found) {
         showToast('該当する製造番号が見つかりませんでした');
@@ -664,7 +673,12 @@ function lookupByManufacturingNumber(mfgNo) {
       return data;
     })
     .catch(err => {
-      showToast('検索に失敗しました: ' + err.message);
+      clearTimeout(timeoutId);
+      if (attempt < 3) {
+        return new Promise(resolve => setTimeout(resolve, 900))
+          .then(() => lookupByManufacturingNumber(mfgNo, attempt + 1));
+      }
+      showToast('検索に失敗しました。もう一度QRを読み取ってください(' + (err.message || '通信エラー') + ')');
       return { customer: '', drawing: '' };
     });
 }
