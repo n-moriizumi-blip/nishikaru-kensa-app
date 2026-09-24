@@ -792,11 +792,20 @@ function renderChips() {
   });
 }
 
+let toastDismiss = null; // 表示中のトースト用リスナー(次のshowToast呼び出し時に古いものを外すため保持)
+
+/**
+ * 【2026-09-24改訂】以前は2.2秒で自動的に消えていたが、エラー文を読み切る前に消えてしまう
+ * との指摘を受け、画面のどこかに触れるまで表示し続けるように変更(短い成功メッセージも含め、
+ * showToastは一律この挙動にする)。
+ */
 function showToast(msg) {
   const toast = document.getElementById('toast');
   toast.textContent = msg;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 2200);
+  if (toastDismiss) document.removeEventListener('pointerdown', toastDismiss, true);
+  toastDismiss = () => { toast.classList.remove('show'); toastDismiss = null; };
+  document.addEventListener('pointerdown', toastDismiss, { capture: true, once: true });
 }
 
 function submitForm() {
