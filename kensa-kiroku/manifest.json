@@ -1,0 +1,14 @@
+{
+  "name": "検査記録ポータル",
+  "short_name": "検査記録",
+  "description": "検査記録の作成・承認・PDF出力",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1F3A52",
+  "theme_color": "#1F3A52",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

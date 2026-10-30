@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>検査記録ポータル | 西軽精機アプリ</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="theme-color" content="#1F3A52">
+<script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
+<style>
+  :root {
+    --navy: #1F3A52;
+    --amber: #F2A900;
+    --bg: #E9ECEF;
+    --text: #1D2226;
+    --border: #C7CDD3;
+    --gray: #5C6670;
+    --viewfinder-bg: #0F1D28;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    display: flex; align-items: flex-start; justify-content: center; padding: 20px 14px;
+  }
+  .card {
+    width: 100%; max-width: 480px; background: #fff; border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06); overflow: hidden;
+  }
+  .card-header { background: var(--navy); padding: 18px 24px 16px; color: #fff; text-align: center; }
+  .brand { font-size: 11px; letter-spacing: .08em; color: var(--amber); font-weight: 700; }
+  .card-header h1 { margin: 4px 0 0; font-size: 19px; font-weight: 700; }
+  .card-body { padding: 22px 24px 26px; }
+
+  .btn { width: 100%; padding: 13px; border-radius: 12px; border: none; font-size: 15px; font-weight: 700;
+    cursor: pointer; font-family: inherit; }
+  .primary-btn { background: var(--amber); color: var(--text); }
+  .secondary-btn { background: #fff; border: 1px solid var(--border); color: var(--gray); padding: 11px; }
+  .btn + .btn { margin-top: 10px; }
+  p.hint { margin: 0 0 18px; font-size: 13.5px; color: var(--gray); }
+
+  .fblocks { display: flex; flex-direction: column; gap: 10px; }
+  .fblock {
+    display: flex; align-items: center; justify-content: center; gap: 14px; width: 100%; padding: 18px;
+    border: none; border-radius: 14px; cursor: pointer; font-family: inherit;
+    transition: filter .1s, transform .1s;
+  }
+  .fblock:active { filter: brightness(.92); transform: scale(.985); }
+  @media (hover: hover) and (pointer: fine) {
+    .fblock:hover { filter: brightness(1.1); box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+  }
+  .fblock .ico {
+    width: 42px; height: 42px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,.18);
+  }
+  .fblock .ico svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2; }
+  .fblock .body { text-align: center; }
+  .fblock .body .title { font-size: 17px; font-weight: 700; color: #fff; }
+  .fblock .body .sub { font-size: 12px; margin-top: 2px; color: #fff; opacity: .85; }
+  .fblock.navy { background: #2470B0; }
+  .fblock.gray { background: #5C6670; }
+  @media (prefers-reduced-motion: reduce) { .fblock { transition: none; } }
+
+  #homeView, #scanView { display: none; }
+  #homeView.active, #scanView.active { display: block; }
+
+  .viewfinder {
+    position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 340px;
+    background: var(--viewfinder-bg); border-radius: 14px; overflow: hidden; margin-bottom: 16px;
+  }
+  .viewfinder video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .corner { position: absolute; width: 30px; height: 30px; border: 3px solid var(--amber); }
+  .corner.tl { top: 14px; left: 14px; border-right: none; border-bottom: none; }
+  .corner.tr { top: 14px; right: 14px; border-left: none; border-bottom: none; }
+  .corner.bl { bottom: 14px; left: 14px; border-right: none; border-top: none; }
+  .corner.br { bottom: 14px; right: 14px; border-left: none; border-top: none; }
+  .scanline {
+    position: absolute; left: 14px; right: 14px; height: 2px; background: var(--amber);
+    box-shadow: 0 0 8px var(--amber); animation: scan 2.4s ease-in-out infinite;
+  }
+  @keyframes scan { 0%,100% { top: 14px; } 50% { top: calc(100% - 16px); } }
+
+  #status { min-height: 22px; text-align: center; font-size: 13.5px; color: var(--gray); margin-bottom: 4px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <div class="brand">西軽精機アプリ</div>
+      <h1>検査記録ポータル</h1>
+    </div>
+    <div class="card-body">
+
+      <div id="homeView" class="active">
+        <p class="hint">製造番号のQRコードを読み取ると、該当の図番で検査記録の作成画面に進みます。</p>
+        <div class="fblocks">
+          <button class="fblock navy" onclick="startScan()">
+            <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 14h2M14 19h2M19 19h2"/></svg></div>
+            <div class="body"><div class="title">QRで読み取る</div><div class="sub">製造番号から検査記録を作成</div></div>
+          </button>
+          <button class="fblock gray" onclick="openPortal()">
+            <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 12l8-8 8 8M6 10v10h12V10"/></svg></div>
+            <div class="body"><div class="title">ポータルを開く</div><div class="sub">読み取らずにそのまま開く</div></div>
+          </button>
+        </div>
+      </div>
+
+      <div id="scanView">
+        <div class="viewfinder">
+          <video id="preview" playsinline muted></video>
+          <div class="corner tl"></div><div class="corner tr"></div>
+          <div class="corner bl"></div><div class="corner br"></div>
+          <div class="scanline"></div>
+        </div>
+        <div id="status">QRコードをかざしてください</div>
+        <button class="btn secondary-btn" onclick="backFromScan()">戻る</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // 検査記録ポータル 本番デプロイURL
+    const PORTAL_URL = "https://script.google.com/a/macros/nishikaru.co.jp/s/AKfycbw1G-JzrDNjs1nzm67WDZFis2252Ir2g4Q8QNLHIpsIN1Ell-1ZWnDu_e8h_zEoALmn/exec";
+
+    const video = document.getElementById('preview');
+    const statusEl = document.getElementById('status');
+    const homeView = document.getElementById('homeView');
+    const scanView = document.getElementById('scanView');
+
+    let mediaStream = null;
+    let scanning = false;
+
+    function showView(view) {
+      [homeView, scanView].forEach(v => v.classList.remove('active'));
+      view.classList.add('active');
+    }
+
+    function openPortal(mfgNo) {
+      const url = mfgNo ? (PORTAL_URL + '?mfgNo=' + encodeURIComponent(mfgNo)) : PORTAL_URL;
+      location.href = url;
+    }
+
+    async function startScan() {
+      showView(scanView);
+      statusEl.textContent = "QRコードをかざしてください";
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 } } });
+        video.srcObject = mediaStream;
+        await video.play();
+        scanning = true;
+        requestAnimationFrame(tick);
+      } catch (e) {
+        statusEl.textContent = "カメラを起動できませんでした";
+      }
+    }
+
+    function stopStream() {
+      scanning = false;
+      if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+    }
+
+    function backFromScan() {
+      stopStream();
+      showView(homeView);
+    }
+
+    function playBeep() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode); gainNode.connect(audioCtx.destination);
+        oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        oscillator.start(); oscillator.stop(audioCtx.currentTime + 0.1);
+      } catch (e) {}
+    }
+
+    function tick() {
+      if (!scanning) return;
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        const canvas = document.createElement("canvas");
+        canvas.height = video.videoHeight; canvas.width = video.videoWidth;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        if (code) {
+          playBeep();
+          statusEl.textContent = "読み取りました。開いています…";
+          stopStream();
+          openPortal(code.data);
+          return;
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+  </script>
+</body>
+</html>
