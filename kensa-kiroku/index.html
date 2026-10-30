@@ -41,30 +41,15 @@
   .btn + .btn { margin-top: 10px; }
   p.hint { margin: 0 0 18px; font-size: 13.5px; color: var(--gray); }
 
-  .fblocks { display: flex; flex-direction: column; gap: 10px; }
-  .fblock {
-    display: flex; align-items: center; justify-content: center; gap: 14px; width: 100%; padding: 18px;
-    border: none; border-radius: 14px; cursor: pointer; font-family: inherit;
-    transition: filter .1s, transform .1s;
-  }
-  .fblock:active { filter: brightness(.92); transform: scale(.985); }
-  @media (hover: hover) and (pointer: fine) {
-    .fblock:hover { filter: brightness(1.1); box-shadow: 0 4px 14px rgba(0,0,0,.2); }
-  }
-  .fblock .ico {
-    width: 42px; height: 42px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
-    background: rgba(255,255,255,.18);
-  }
-  .fblock .ico svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2; }
-  .fblock .body { text-align: center; }
-  .fblock .body .title { font-size: 17px; font-weight: 700; color: #fff; }
-  .fblock .body .sub { font-size: 12px; margin-top: 2px; color: #fff; opacity: .85; }
-  .fblock.navy { background: #2470B0; }
-  .fblock.gray { background: #5C6670; }
-  @media (prefers-reduced-motion: reduce) { .fblock { transition: none; } }
-
   #homeView, #scanView { display: none; }
   #homeView.active, #scanView.active { display: block; }
+  #homeView { text-align: center; padding: 10px 0 2px; }
+  .spinner {
+    width: 34px; height: 34px; margin: 0 auto 14px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--navy);
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .viewfinder {
     position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 340px;
@@ -94,17 +79,8 @@
     <div class="card-body">
 
       <div id="homeView" class="active">
-        <p class="hint">製造番号のQRコードを読み取ると、該当の図番で検査記録の作成画面に進みます。</p>
-        <div class="fblocks">
-          <button class="fblock navy" onclick="startScan()">
-            <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 14h2M14 19h2M19 19h2"/></svg></div>
-            <div class="body"><div class="title">QRで読み取る</div><div class="sub">製造番号から検査記録を作成</div></div>
-          </button>
-          <button class="fblock gray" onclick="openPortal()">
-            <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 12l8-8 8 8M6 10v10h12V10"/></svg></div>
-            <div class="body"><div class="title">ポータルを開く</div><div class="sub">読み取らずにそのまま開く</div></div>
-          </button>
-        </div>
+        <div class="spinner"></div>
+        <p class="hint" style="margin:0">起動しています…</p>
       </div>
 
       <div id="scanView">
@@ -164,7 +140,7 @@
 
     function backFromScan() {
       stopStream();
-      showView(homeView);
+      openPortal();
     }
 
     function playBeep() {
@@ -197,6 +173,15 @@
         }
       }
       requestAnimationFrame(tick);
+    }
+
+    // ?scan=1 が付いていればQR読み取りへ、無ければそのままポータルを開く
+    // （このページ自体がPWAのホーム画面アイコンの起動先を兼ねているため）
+    if (new URLSearchParams(location.search).get('scan') === '1') {
+      showView(scanView);
+      startScan();
+    } else {
+      openPortal();
     }
   </script>
 </body>
