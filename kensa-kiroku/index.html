@@ -224,8 +224,11 @@
         <div style="padding:10px 16px 0"><span class="note">外観ランク（図番ごとに固定・出荷仕様で編集）: <b id="qlRankFixed" style="color:var(--rail)">-</b></span></div>
         <div id="qualityLogForm" hidden style="padding:16px; display:flex; flex-direction:column; gap:10px; border-bottom:1px solid var(--border)">
           <b id="qlFormTitle" style="font-size:12.5px">記録を追加</b>
-          <div class="formGrid">
-            <label class="fl">写真添付<input type="text" placeholder="（未実装のため省略）" disabled></label>
+          <div>
+            <input type="file" id="qlPhotoInput" accept="image/*" multiple hidden>
+            <button type="button" class="btn btn-ghost btn-sm" id="qlPhotoBtn">📷 写真を添付</button>
+            <span class="note" id="qlPhotoLabel" style="margin-left:8px"></span>
+            <div id="qlPhotoThumbs" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px"></div>
           </div>
           <label class="fl">内容<input type="text" id="qlContent" placeholder="例: ◆端面に僅かな打痕があったが公差内のため合格とした"></label>
           <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-dim)"><input type="checkbox" id="qlShare"> 共有する（全部署・西軽精機ナレッジにも表示）</label>
@@ -477,6 +480,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     searchRecords: { method:'GET', fields:['filter'] },
     listZubanNames: { method:'GET', fields:[] },
     listCustomerNames: { method:'GET', fields:[] },
+    uploadQualityPhoto: { method:'POST', fields:['zuban','filename','mimeType','dataBase64'] },
     checkCustomerFolder: { method:'GET', fields:['zuban'] },
     checkZubanFolder: { method:'GET', fields:['customerFolderName','zuban'] },
     listPeopleOptions: { method:'GET', fields:[] },
@@ -1087,13 +1091,22 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       if(!res.info.qualityLog.length){ qlBox.innerHTML = '<div class="rempty">まだ記録がありません</div>'; }
       res.info.qualityLog.forEach(function(q){
         var row = document.createElement('div'); row.className = 'rrow'; row.style.gridTemplateColumns = '70px 1fr 60px 32px';
-        row.innerHTML = '<div class="date"></div><div><div class="zu" style="font-size:12.5px"></div><div class="meta"></div></div><div></div><button type="button" class="rmBtn qlEditBtn" title="編集する">✏️</button>';
+        row.innerHTML = '<div class="date"></div><div><div class="zu" style="font-size:12.5px"></div><div class="meta"></div><div class="qlPhotos" style="margin-top:4px"></div></div><div></div><button type="button" class="rmBtn qlEditBtn" title="編集する">✏️</button>';
         row.querySelector('.date').textContent = q['タイムスタンプ'].slice(5,10).replace('-', '/');
         row.querySelector('.zu').textContent = q['部署'] || '';
         row.querySelector('.meta').textContent = q['内容'] + '（' + q['投稿者名'] + '）';
         var shared = (q['共有フラグ'] === 'true' || q['共有フラグ'] === '1' || q['共有フラグ'] === true);
         if(shared){ row.children[2].innerHTML = '<span class="pill waiting">共有</span>'; }
-        row.querySelector('.qlEditBtn').addEventListener('click', function(){ openQlForm_(q['投稿ID'], q['内容'], shared); });
+        var photoUrls = (q['写真URL'] || '').split('\n').filter(Boolean);
+        var photoBox = row.querySelector('.qlPhotos');
+        photoUrls.forEach(function(url, i){
+          var a = document.createElement('a');
+          a.href = url; a.target = '_blank'; a.rel = 'noopener';
+          a.textContent = '📷' + (photoUrls.length > 1 ? (i+1) : '');
+          a.style.cssText = 'margin-right:8px; font-size:12px; text-decoration:none';
+          photoBox.appendChild(a);
+        });
+        row.querySelector('.qlEditBtn').addEventListener('click', function(){ openQlForm_(q['投稿ID'], q['内容'], shared, q['写真URL']); });
         qlBox.appendChild(row);
       });
 
@@ -1123,25 +1136,101 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
 
   var qlForm = document.getElementById('qualityLogForm');
   // 新規追加・既存編集の両方をこのフォーム1つで扱う（state.editingQlIdがあれば編集、無ければ新規）
-  function openQlForm_(id, content, shared){
+  function openQlForm_(id, content, shared, photoUrl){
     state.editingQlId = id || null;
+    state.qlPhotoUrls = (photoUrl || '').split('\n').filter(Boolean);
     document.getElementById('qlContent').value = content || '';
     document.getElementById('qlShare').checked = !!shared;
     document.getElementById('qlFormTitle').textContent = id ? '記録を編集' : '記録を追加';
+    renderQlPhotoThumbs_();
     qlForm.hidden = false;
   }
   function closeQlForm_(){
     state.editingQlId = null;
+    state.qlPhotoUrls = [];
+    document.getElementById('qlPhotoInput').value = '';
     qlForm.hidden = true;
   }
+  function renderQlPhotoThumbs_(){
+    var box = document.getElementById('qlPhotoThumbs');
+    box.innerHTML = '';
+    (state.qlPhotoUrls || []).forEach(function(url, i){
+      var a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.title = '写真を見る（タップで削除）';
+      a.textContent = '📷 ' + (i+1);
+      a.className = 'btn btn-ghost btn-sm';
+      a.addEventListener('click', function(e){
+        if(!confirm('この写真を添付から外しますか？（画像自体は削除されません）')) return;
+        e.preventDefault();
+        state.qlPhotoUrls.splice(i, 1);
+        renderQlPhotoThumbs_();
+      });
+      box.appendChild(a);
+    });
+  }
+  // スマホのカメラ写真はそのままだと数MBあり、Base64化して送ると通信が不安定な環境で
+  // 失敗しやすい（"Failed to fetch"）ため、アップロード前に長辺1600pxまで縮小・JPEG圧縮する
+  function resizeImageForUpload_(file){
+    var maxDimension = 1600, quality = 0.8;
+    return new Promise(function(resolve){
+      if(!file.type || file.type.indexOf('image/') !== 0){ resolve(file); return; }
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function(){
+        URL.revokeObjectURL(url);
+        var scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+        var w = Math.round(img.width * scale) || 1, h = Math.round(img.height * scale) || 1;
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function(blob){ resolve(blob || file); }, 'image/jpeg', quality);
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+  function fileToBase64_(fileOrBlob){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(){ resolve(reader.result.split(',')[1]); };
+      reader.onerror = reject;
+      reader.readAsDataURL(fileOrBlob);
+    });
+  }
+  document.getElementById('qlPhotoBtn').addEventListener('click', function(){
+    document.getElementById('qlPhotoInput').click();
+  });
+  document.getElementById('qlPhotoInput').addEventListener('change', function(e){
+    var files = Array.prototype.slice.call(e.target.files || []);
+    e.target.value = '';
+    if(!files.length || !state.zubanPage) return;
+    var label = document.getElementById('qlPhotoLabel');
+    var chain = Promise.resolve();
+    files.forEach(function(file, idx){
+      chain = chain.then(function(){
+        label.textContent = files.length > 1 ? 'アップロード中…（' + (idx+1) + '/' + files.length + '）' : 'アップロード中…';
+        return resizeImageForUpload_(file).then(function(uploadBlob){
+          return fileToBase64_(uploadBlob).then(function(base64){
+            var filename = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+            return run('uploadQualityPhoto', state.zubanPage.zuban, filename, 'image/jpeg', base64);
+          });
+        }).then(function(res){ state.qlPhotoUrls.push(res.url); renderQlPhotoThumbs_(); });
+      });
+    });
+    chain.then(function(){ label.textContent = ''; }).catch(function(err){ label.textContent = ''; errToast(err); });
+  });
   document.getElementById('addQualityLog').addEventListener('click', function(){
     if(!qlForm.hidden && !state.editingQlId){ closeQlForm_(); return; }
-    openQlForm_(null, '', false);
+    openQlForm_(null, '', false, '');
   });
   document.getElementById('qlCancel').addEventListener('click', closeQlForm_);
   document.getElementById('saveQualityLog').addEventListener('click', function(){
     if(!state.zubanPage){ toast('図番が選ばれていません'); return; }
-    var data = { '内容': document.getElementById('qlContent').value || '（内容未入力）', '共有フラグ': document.getElementById('qlShare').checked };
+    var data = {
+      '内容': document.getElementById('qlContent').value || '（内容未入力）',
+      '共有フラグ': document.getElementById('qlShare').checked,
+      '写真URL': (state.qlPhotoUrls || []).join('\n')
+    };
     var isEdit = !!state.editingQlId;
     var p = isEdit ? run('updateQualityLog', state.editingQlId, data) : run('addQualityLog', state.zubanPage.zuban, data);
     p.then(function(){
