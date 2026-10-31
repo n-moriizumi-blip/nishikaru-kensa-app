@@ -181,6 +181,7 @@
         <datalist id="remarkSuggest">
           <option value="(熱処理前)"></option><option value="(表面処理前)"></option><option value="(研磨前)"></option>
           <option value="(熱処理後)"></option><option value="(表面処理後)"></option><option value="(研磨後)"></option>
+          <option value="(カット品)"></option>
         </datalist>
 
         <div style="display:flex; gap:10px; justify-content:flex-end">
@@ -939,11 +940,16 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       if(listId) inp.setAttribute('list', listId);
       td.appendChild(inp); return td;
     }
-    var baseTd = cell('例: φ12', base), maxTd = cell('例: +0.05', max), minTd = cell('例: -0.05', min);
+    // 基準値だけtextarea（改行して全文表示・枠の高さは固定でスクロール）、他は従来通りinput
+    var baseTd = document.createElement('td');
+    var baseInputEl = document.createElement('textarea'); baseInputEl.placeholder = '例: φ12'; baseInputEl.className = 'tmplBaseInput'; baseInputEl.rows = 1;
+    if(base) baseInputEl.value = base;
+    baseTd.appendChild(baseInputEl);
+    var maxTd = cell('例: +0.05', max), minTd = cell('例: -0.05', min);
     tr.appendChild(baseTd); tr.appendChild(maxTd); tr.appendChild(minTd);
     tr.appendChild(cell('例: M', method, 'methodSuggest'));
     tr.appendChild(cell('例: (処理前)', remark, 'remarkSuggest'));
-    var baseInput = baseTd.querySelector('input'), maxInput = maxTd.querySelector('input'), minInput = minTd.querySelector('input');
+    var baseInput = baseInputEl, maxInput = maxTd.querySelector('input'), minInput = minTd.querySelector('input');
     // 公差MAX・MINを自分で入力（編集）したら、以後は基準値を変えても自動計算で上書きしない。
     // 両方空のまま基準値だけ入れ直している間は、何度でも自動計算をやり直す
     var tolAuto = !(max || min);
@@ -1018,7 +1024,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
 
   var lastFocusedInput = null;
   document.getElementById('tmplItemsBody').addEventListener('focusin', function(e){
-    if(e.target.tagName === 'INPUT') lastFocusedInput = e.target;
+    if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') lastFocusedInput = e.target;
   });
   function insertAtCursor(input, text){
     var start = input.selectionStart, end = input.selectionEnd;
@@ -1043,8 +1049,9 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     if(!zuban){ toast('図番を入力してください'); return; }
     var items = [];
     document.querySelectorAll('#tmplItemsBody tr').forEach(function(tr){
+      var baseEl = tr.querySelector('.tmplBaseInput');
       var ins = tr.querySelectorAll('input[type=text]');
-      items.push({ base: ins[0].value, max: ins[1].value, min: ins[2].value, method: ins[3].value, remark: ins[4].value });
+      items.push({ base: baseEl ? baseEl.value : '', max: ins[0].value, min: ins[1].value, method: ins[2].value, remark: ins[3].value });
     });
     run('saveZubanTemplate', {
       zuban: zuban, customer: document.getElementById('newZubanCustomer').value, name: document.getElementById('newZubanName').value,

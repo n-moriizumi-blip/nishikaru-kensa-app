@@ -182,6 +182,9 @@ table.items th{
 table.items td{padding:7px 8px; border-bottom:1px solid var(--border); vertical-align:middle}
 table.items tbody tr:last-child td{border-bottom:none}
 table.items td.num{font-family:'JetBrains Mono',monospace; white-space:nowrap}
+/* 基準値（2列目）だけは長文でも省略(…)せず全部表示する（折り返し、行の高さは自動で伸びる）。
+   公差MAX/MIN・測定方法・№は短い値のみのため従来通り1行表示のまま */
+table.items td.num:nth-child(2){ white-space:normal; overflow:visible; text-overflow:clip; word-break:break-word; line-height:1.35 }
 /* Noto Sans Symbols 2をセル全体の既定フォントにすると、数字1文字ごとに広い字送り幅を
    持つその字形が使われてしまい、普通の数字まで間延びして見える不具合があった。
    そのため基準値セルの既定フォントには使わず、実際にGD&T記号が来る文字だけ
@@ -240,6 +243,12 @@ table.tmplItems td.tno{font-family:'JetBrains Mono',monospace; color:var(--ink-d
 /* 入力欄は文字ごとにフォントを分けられないため既定フォントのまま（記号は打っているときは
    文字化けして見えることがあるが、保存後の表示・PDFではsymFont/symBigで正しく表示される） */
 table.tmplItems input[type=text]{min-height:38px; padding:7px 8px; font-family:'JetBrains Mono',monospace; font-size:12.5px}
+/* 基準値は長文でも全部入力・確認できるよう折り返し表示にする。枠の高さは固定し、
+   はみ出す分は内部スクロール（行の高さが崩れないようにするため） */
+table.tmplItems textarea.tmplBaseInput{
+  min-height:38px; max-height:38px; padding:7px 8px; font-family:'JetBrains Mono',monospace; font-size:12.5px;
+  resize:none; overflow-y:auto; line-height:1.3; box-sizing:border-box; display:block;
+}
 table.tmplItems th:nth-child(1), table.tmplItems td:nth-child(1){width:5%}
 table.tmplItems th:nth-child(2), table.tmplItems td:nth-child(2){width:14%}
 table.tmplItems th:nth-child(3), table.tmplItems td:nth-child(3){width:12%}
