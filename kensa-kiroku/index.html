@@ -1095,8 +1095,10 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         row.querySelector('.date').textContent = q['タイムスタンプ'].slice(5,10).replace('-', '/');
         row.querySelector('.zu').textContent = q['部署'] || '';
         row.querySelector('.meta').textContent = q['内容'] + '（' + q['投稿者名'] + '）';
+        // 共有フラグは西軽精機ナレッジ側での表示方法を切り替えるためのものなので、
+        // 検査記録ポータルの一覧では区別なく常に同じ見た目で表示する（editingQlIdの
+        // チェックボックス初期値としては引き続き使う）
         var shared = (q['共有フラグ'] === 'true' || q['共有フラグ'] === '1' || q['共有フラグ'] === true);
-        if(shared){ row.children[2].innerHTML = '<span class="pill waiting">共有</span>'; }
         var photoUrls = (q['写真URL'] || '').split('\n').filter(Boolean);
         var photoBox = row.querySelector('.qlPhotos');
         photoUrls.forEach(function(url){
