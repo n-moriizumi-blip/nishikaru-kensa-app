@@ -349,6 +349,11 @@
         <div class="card-head"><h2 id="searchResultCount">結果</h2></div>
         <div class="rlist" id="searchResultList"><div class="rempty">検索条件を指定してください</div></div>
       </div>
+
+      <div class="card" id="oldPdfCard" hidden>
+        <div class="card-head"><h2>旧システムのPDF</h2><span class="note">検査記録DX化（スプレッドシート版）に残っている記録</span></div>
+        <div class="rlist" id="oldPdfList"></div>
+      </div>
     </section>
 
     <!-- ══════ 使い方ガイド ══════ -->
@@ -492,6 +497,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     getApprovalList: { method:'GET', fields:[] },
     getRecord: { method:'GET', fields:['recordId'] },
     searchRecords: { method:'GET', fields:['filter'] },
+    searchOldPdfs: { method:'GET', fields:['zuban'] },
     listZubanNames: { method:'GET', fields:[] },
     listCustomerNames: { method:'GET', fields:[] },
     uploadQualityPhoto: { method:'POST', fields:['zuban','filename','mimeType','dataBase64','customerFolderOverride','zubanFolderOverride'] },
@@ -1790,8 +1796,9 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
 
   /* ---------- 検索・閲覧 ---------- */
   document.getElementById('searchBtn').addEventListener('click', function(){
+    var zuban = document.getElementById('sr_zuban').value;
     var filter = {
-      zuban: document.getElementById('sr_zuban').value, mfgNo: document.getElementById('sr_mfgNo').value,
+      zuban: zuban, mfgNo: document.getElementById('sr_mfgNo').value,
       inspector: document.getElementById('sr_inspector').value, state: document.getElementById('sr_state').value
     };
     run('searchRecords', filter).then(function(list){
@@ -1804,6 +1811,23 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         }));
       });
     }).catch(errToast);
+    // 旧システム（検査記録DX化）のPDFは図番検索の時だけ合わせて表示する
+    var oldCard = document.getElementById('oldPdfCard');
+    var oldBox = document.getElementById('oldPdfList');
+    if(!zuban){ oldCard.hidden = true; oldBox.innerHTML = ''; return; }
+    runSilent('searchOldPdfs', zuban).then(function(list){
+      oldCard.hidden = !list.length;
+      oldBox.innerHTML = '';
+      list.forEach(function(r){
+        var row = document.createElement('div'); row.className = 'rrow'; row.style.gridTemplateColumns = '1fr';
+        var link = document.createElement('a');
+        link.href = 'https://drive.google.com/file/d/' + r.fileId + '/view'; link.target = '_blank'; link.rel = 'noopener';
+        link.textContent = '📄 ' + r.zuban + '　' + r.fileName;
+        link.style.cssText = 'font-size:13px';
+        row.appendChild(link);
+        oldBox.appendChild(row);
+      });
+    }).catch(function(){ oldCard.hidden = true; });
   });
 
   /* ---------- サインイン後の初期表示（handleCredentialResponseから呼ばれる） ---------- */
