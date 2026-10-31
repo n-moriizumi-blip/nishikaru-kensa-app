@@ -1,0 +1,338 @@
+/* layout: 左に固定ナビ、右にメイン作業域。ハッシュで画面切替 */
+:root{
+  --bg:#f1ede3; --paper:#faf8f2; --surface:#ffffff; --border:#d8d0bd; --border-strong:#b9ad8f;
+  --ink:#1c2a3a; --ink-dim:#5b6b7a; --ink-faint:#8b96a0;
+  --accent:#b5742a; --accent-ink:#7a4a16; --accent-soft:#f1e2c9;
+  --rail:#182333; --rail-ink:#e9e3d2; --rail-dim:#8694a6; --rail-active:#2a3b52;
+  --ok:#2f7d5b; --ok-soft:#e1f0e7; --fail:#b23b3b; --fail-soft:#f8e3e1; --warn:#b5742a; --warn-soft:#f1e2c9;
+  --shadow: 0 1px 2px rgba(28,42,58,.06), 0 8px 24px rgba(28,42,58,.08);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{
+  background:var(--bg); color:var(--ink); margin:0;
+  font-family:'Zen Kaku Gothic New',"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  font-size:14px; line-height:1.6;
+}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace; font-variant-numeric:tabular-nums}
+
+.shell{display:flex; min-height:100vh}
+
+/* ── 左ナビ（普段は64pxでアイコンのみ、ホバーかロゴタップで220pxに広がる。勤怠管理ポータルと同じ方式） ── */
+.rail-spacer{width:64px; flex:none}
+.rail{
+  background:var(--rail); width:64px; flex:none; overflow:hidden;
+  position:fixed; top:0; left:0; bottom:0; z-index:50; transition:width .16s ease;
+}
+.rail:hover, .rail.pinned{ width:220px; box-shadow:6px 0 22px rgba(28,20,8,.28) }
+.rail-inner{
+  width:220px; height:100%; color:var(--rail-ink);
+  display:flex; flex-direction:column; gap:2px; padding:0 10px 16px 10px;
+}
+.rail-brand{display:flex; align-items:center; gap:9px; padding:18px 8px 16px; cursor:pointer}
+.rail-brand .mark{
+  width:30px; height:30px; border-radius:7px; background:var(--accent); color:var(--rail);
+  display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; flex:none;
+}
+.brand-text{display:flex; flex-direction:column; line-height:1.25; white-space:nowrap}
+.brand-text b{font-size:14px; font-weight:700}
+.brand-text span{font-size:10.5px; color:var(--rail-dim)}
+.nav-btn{
+  display:flex; align-items:center; gap:11px; padding:13px 11px; border-radius:8px; border:none;
+  background:transparent; color:var(--rail-dim); font:inherit; font-size:13.5px; font-weight:500;
+  text-align:left; cursor:pointer; width:100%; min-height:46px; white-space:nowrap; text-decoration:none; box-sizing:border-box;
+}
+.nav-btn .ic{width:19px; text-align:center; font-size:16px; flex:none}
+.nav-btn:hover{background:rgba(255,255,255,.05); color:var(--rail-ink)}
+.nav-btn.active{background:var(--rail-active); color:#fff}
+.navbadge{
+  margin-left:auto; min-width:17px; height:17px; padding:0 5px; border-radius:999px;
+  background:#d93025; color:#fff; font-size:10.5px; font-weight:800; line-height:17px; text-align:center; flex:none;
+}
+.rail-flex-spacer{flex:1}
+.rail-user{
+  display:flex; align-items:center; gap:9px; padding:10px 8px; border-top:1px solid rgba(255,255,255,.08);
+  margin-top:8px;
+}
+.rail-user .av{
+  width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none;
+}
+.rail-user .who{display:flex; flex-direction:column; line-height:1.2}
+.rail-user .who b{font-size:12px; font-weight:700; color:var(--rail-ink)}
+.rail-user .who span{font-size:10px; color:var(--rail-dim)}
+
+/* ── メイン ───────────────────────────── */
+.main{ flex:1; min-width:0; padding:0 20px 60px 20px; }
+.view{max-width:980px; margin:0 auto; padding-top:26px; display:flex; flex-direction:column; gap:26px}
+.view[hidden]{display:none}
+
+.pageHead{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap}
+.pageHead h1{font-size:21px; font-weight:700; margin:0}
+.pageHead .sub{color:var(--ink-dim); font-size:12.5px}
+
+.btn{
+  font:inherit; font-size:13px; font-weight:700; border-radius:8px; padding:12px 18px; border:1px solid transparent;
+  cursor:pointer; display:inline-flex; align-items:center; gap:7px; white-space:nowrap; min-height:44px;
+}
+.btn-accent{background:var(--accent); color:#fff}
+.btn-accent:hover{filter:brightness(1.06)}
+.btn-ghost{background:var(--surface); color:var(--ink); border-color:var(--border-strong)}
+.btn-ghost:hover{background:var(--paper)}
+.btn-ok{background:var(--ok); color:#fff}
+.btn-fail{background:transparent; color:var(--fail); border-color:var(--fail)}
+.btn-sm{padding:9px 14px; font-size:12px; min-height:38px}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+
+/* stat tiles */
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px}
+.stat{
+  background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px;
+  display:flex; flex-direction:column; gap:4px;
+}
+.stat .n{font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:700; font-variant-numeric:tabular-nums}
+.stat .lbl{font-size:12px; color:var(--ink-dim); font-weight:500}
+.stat.warn .n{color:var(--warn)}
+.stat.fail .n{color:var(--fail)}
+.stat.ok .n{color:var(--ok)}
+
+.card{background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden}
+.card-head{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:var(--rail); border-radius:11px 11px 0 0}
+.card-head h2{font-size:14px; font-weight:700; margin:0; color:#fff}
+.card-head .note{color:var(--rail-dim)}
+
+/* record rows */
+.rlist{display:flex; flex-direction:column}
+.rrow{
+  display:grid; grid-template-columns:1fr 100px 90px 110px 28px; gap:10px; align-items:center;
+  padding:14px 16px; min-height:44px; border-bottom:1px solid var(--border); cursor:pointer;
+}
+.rrow:last-child{border-bottom:none}
+.rrow:hover{background:var(--paper)}
+.rrow .zu{font-weight:700; font-size:13px}
+.rrow .meta{font-size:11.5px; color:var(--ink-dim)}
+.rrow .date{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink-dim)}
+.rempty{padding:22px 16px; color:var(--ink-faint); font-size:12.5px; text-align:center}
+@media (max-width:640px){ .rrow{grid-template-columns:1fr auto; grid-template-areas:"zu st" "meta meta"; row-gap:3px} .rrow .date, .rrow .arrow{display:none} .rrow .st{grid-area:st} .rrow .meta{grid-area:meta} }
+
+.pill{
+  display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:3px 9px;
+  border-radius:99px; white-space:nowrap;
+}
+.pill.progress{background:var(--warn-soft); color:var(--warn)}
+.pill.waiting{background:#dde6f0; color:#2a5a8a}
+.pill.approved{background:var(--ok-soft); color:var(--ok)}
+.pill.fail{background:var(--fail-soft); color:var(--fail)}
+
+/* 新規作成: 起点選択 */
+.startChoices{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+@media (max-width:620px){ .startChoices{grid-template-columns:1fr} }
+.startCard{
+  background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:24px 20px;
+  display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; cursor:pointer;
+  text-decoration:none; color:inherit;
+}
+.startCard:hover{border-color:var(--accent); box-shadow:var(--shadow)}
+.startCard .glyph{
+  width:52px; height:52px; border-radius:50%; background:var(--accent-soft); color:var(--accent-ink);
+  display:flex; align-items:center; justify-content:center; font-size:24px;
+}
+.startCard b{font-size:15px}
+.startCard span{font-size:12px; color:var(--ink-dim)}
+
+.scan-result{
+  background:var(--ok-soft); border:1px solid var(--ok); border-radius:12px; padding:14px 16px;
+  display:flex; align-items:center; gap:12px; max-width:420px; margin:0 auto;
+}
+.scan-result .ic{color:var(--ok); font-size:20px}
+.scan-result b{display:block; font-size:13px}
+.scan-result span{font-size:12px; color:var(--ink-dim)}
+.scan-result.clickable{cursor:pointer}
+.scan-result.clickable:hover{filter:brightness(.97)}
+.scan-result .chev{margin-left:auto; color:var(--ok); font-size:18px; flex:none}
+
+.searchRow{display:flex; gap:8px; max-width:420px; margin:0 auto; width:100%}
+.searchRow input{flex:1; min-width:0}
+
+input[type=text], input[type=date], input[type=number], select, textarea{
+  font:inherit; font-size:14px; padding:11px 12px; border-radius:7px; border:1px solid var(--border-strong);
+  background:var(--paper); color:var(--ink); width:100%; min-height:44px;
+}
+textarea{resize:vertical; line-height:1.5}
+/* プレースホルダ（例示）は実際の入力値とはっきり区別できるよう、薄いグレー＋斜体にする */
+input::placeholder{color:var(--ink-faint); font-style:italic; opacity:1}
+label.fl{display:flex; flex-direction:column; gap:4px; font-size:11.5px; color:var(--rail); font-weight:600}
+
+/* 検査入力フォーム */
+.formGrid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px}
+@media (max-width:760px){ .formGrid{grid-template-columns:repeat(2,1fr)} }
+
+table.items{width:100%; border-collapse:collapse; font-size:12.5px; table-layout:fixed}
+table.items th{
+  background:var(--paper); color:var(--ink-dim); font-weight:700; font-size:10.5px; letter-spacing:.04em;
+  text-transform:uppercase; padding:8px 8px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap;
+}
+table.items td{padding:7px 8px; border-bottom:1px solid var(--border); vertical-align:middle}
+table.items tbody tr:last-child td{border-bottom:none}
+table.items td.num{font-family:'JetBrains Mono',monospace; white-space:nowrap}
+/* Noto Sans Symbols 2をセル全体の既定フォントにすると、数字1文字ごとに広い字送り幅を
+   持つその字形が使われてしまい、普通の数字まで間延びして見える不具合があった。
+   そのため基準値セルの既定フォントには使わず、実際にGD&T記号が来る文字だけ
+   span(.symFont/.symBig)で個別に当てる方式にする（bigSymHtml_、index.html参照） */
+.symFont{font-family:'Noto Sans Symbols 2','Zen Kaku Gothic New',sans-serif}
+.symBig{font-family:'Noto Sans Symbols 2','Zen Kaku Gothic New',sans-serif; font-size:1.7em; line-height:0; vertical-align:middle; display:inline-block}
+/* 公差MAX・公差MIN・測定方法は見出しもデータも中央揃え（見出しと位置がズレないよう両方に指定） */
+table.items th:nth-child(3), table.items td:nth-child(3),
+table.items th:nth-child(4), table.items td:nth-child(4),
+table.items th:nth-child(5), table.items td:nth-child(5){ text-align:center }
+td.meas-cell{padding:5px 4px !important}
+table.items input.meas{
+  width:50px; font-family:'JetBrains Mono',monospace; font-size:11.5px; padding:8px 3px; min-height:38px;
+  border-radius:6px; border:1px solid var(--border-strong); background:var(--paper); color:var(--ink); text-align:center;
+}
+td.meas-cell.pass{background:var(--ok-soft)}
+td.meas-cell.pass input.meas{border-color:var(--ok); color:var(--ok)}
+td.meas-cell.ng{background:var(--fail-soft)}
+td.meas-cell.ng input.meas{border-color:var(--fail); color:var(--fail); font-weight:700}
+.tbl-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:10px}
+
+/* №〜測定方法の5列は横スクロールしても固定表示 */
+table.items th:nth-child(-n+5), table.items td:nth-child(-n+5){
+  position:sticky; z-index:2; background:var(--surface); overflow:hidden; text-overflow:ellipsis;
+}
+table.items th:nth-child(-n+5){ background:var(--paper); z-index:3 }
+table.items th:nth-child(1), table.items td:nth-child(1){ left:0;   width:32px }
+table.items th:nth-child(2), table.items td:nth-child(2){ left:32px; width:60px }
+table.items th:nth-child(3), table.items td:nth-child(3){ left:92px; width:70px }
+table.items th:nth-child(4), table.items td:nth-child(4){ left:162px; width:70px }
+table.items th:nth-child(5), table.items td:nth-child(5){ left:232px; width:76px; white-space:nowrap; box-shadow:3px 0 6px rgba(28,20,8,.10) }
+/* table-layout:fixedの下では全列に幅が要るので、サンプル列にも明示する（無いと固定5列の実際の幅がずれ、
+   実測値の左側がその下に隠れてしまう） */
+table.items th:nth-child(n+6), table.items td:nth-child(n+6){ width:52px }
+
+/* 新規図番テンプレート作成：記号・測定方法ツールバー・項目編集表 */
+/* .cardのoverflow:hiddenがあるとposition:stickyが効かないため、このカードだけ解除する */
+#tmplItemsCard{overflow:visible}
+.stickyToolbars{position:sticky; top:0; z-index:5; background:var(--surface); box-shadow:0 2px 6px rgba(28,20,8,.10); border-radius:12px 12px 0 0}
+.symToolbar{display:flex; flex-wrap:wrap; gap:6px; padding:12px 16px; border-bottom:1px solid var(--border)}
+.symGroup{display:flex; gap:4px; padding-right:10px; border-right:1px solid var(--border)}
+.symGroup:last-child{border-right:none}
+/* GD&T記号(⏤⏥⌭⌖⌯⌰等)はZen Kaku Gothic New等の通常フォントに無く文字化けするため、
+   それらをカバーするNoto Sans Symbols 2を先に試す（無い文字だけ後続フォントにフォールバック） */
+.symBtn{width:40px; height:40px; min-height:40px; border-radius:8px; border:1px solid var(--border-strong); background:var(--paper); color:var(--ink); font-size:17px; font-family:'Noto Sans Symbols 2','Zen Kaku Gothic New',sans-serif; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0}
+.symBtn:hover{border-color:var(--accent); color:var(--accent-ink)}
+.symBtn:active{background:var(--accent-soft)}
+.symBtn-lg{font-size:24px}
+/* table-layout:fixed＋列ごとの固定幅で、本体の表と見出しだけのミニ表(tmplItemsHeadOnly)の
+   列幅を必ず一致させる（JSで高さを測ってsticky位置を合わせる方式はズレやすかったのでやめた） */
+table.tmplItems{width:100%; border-collapse:collapse; font-size:12.5px; table-layout:fixed}
+table.tmplItems th{background:var(--paper); color:var(--ink-dim); font-weight:700; font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; padding:8px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+table.tmplItems td{padding:6px 8px; border-bottom:1px solid var(--border); vertical-align:middle}
+table.tmplItems tbody tr:last-child td{border-bottom:none}
+table.tmplItems td.tno{font-family:'JetBrains Mono',monospace; color:var(--ink-dim); text-align:center}
+/* 入力欄は文字ごとにフォントを分けられないため既定フォントのまま（記号は打っているときは
+   文字化けして見えることがあるが、保存後の表示・PDFではsymFont/symBigで正しく表示される） */
+table.tmplItems input[type=text]{min-height:38px; padding:7px 8px; font-family:'JetBrains Mono',monospace; font-size:12.5px}
+table.tmplItems th:nth-child(1), table.tmplItems td:nth-child(1){width:5%}
+table.tmplItems th:nth-child(2), table.tmplItems td:nth-child(2){width:14%}
+table.tmplItems th:nth-child(3), table.tmplItems td:nth-child(3){width:12%}
+table.tmplItems th:nth-child(4), table.tmplItems td:nth-child(4){width:12%}
+table.tmplItems th:nth-child(5), table.tmplItems td:nth-child(5){width:16%}
+table.tmplItems th:nth-child(6), table.tmplItems td:nth-child(6){width:23%}
+table.tmplItems th:nth-child(7), table.tmplItems td:nth-child(7){width:18%}
+.tmplItemsHeadOnly{margin:0; border-bottom:1px solid var(--border)}
+.tmplItemsHeadOnly th{border-bottom:none}
+td.tmplActions{display:flex; gap:4px; align-items:center; white-space:nowrap}
+.rmBtn{width:32px; height:32px; min-height:32px; border-radius:6px; border:1px solid var(--border-strong); background:var(--surface); color:var(--fail); font-size:15px; cursor:pointer; padding:0; flex:none}
+.moveBtn{width:32px; height:32px; min-height:32px; border-radius:6px; border:1px solid var(--border-strong); background:var(--surface); color:var(--ink-dim); font-size:14px; cursor:pointer; padding:0; flex:none}
+.moveBtn:hover{color:var(--ink); border-color:var(--accent)}
+.moveBtn:disabled{opacity:.35; cursor:not-allowed}
+
+.judgeBar{
+  display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+  background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 18px;
+}
+.judgeBar .status{display:flex; align-items:center; gap:10px}
+.judgeBar .dot{width:12px; height:12px; border-radius:50%}
+.judgeBar.pass .dot{background:var(--ok)}
+.judgeBar.ng .dot{background:var(--fail)}
+.judgeBar .status b{font-size:15px}
+.judgeBar.pass .status b{color:var(--ok)}
+.judgeBar.ng .status b{color:var(--fail)}
+
+/* 通信中（fetch実行中）は操作をブロックし、画面中央に分かりやすく表示する */
+.busyOverlay{
+  position:fixed; inset:0; z-index:200; background:rgba(28,20,8,.18); cursor:wait;
+  display:flex; align-items:center; justify-content:center;
+}
+.busyCard{
+  background:var(--ink); color:var(--paper); display:flex; align-items:center; gap:12px;
+  padding:16px 24px; border-radius:12px; box-shadow:0 10px 34px rgba(0,0,0,.3); font-size:14px; font-weight:700;
+}
+.busyRing{
+  width:20px; height:20px; border-radius:50%; flex:none;
+  border:3px solid rgba(250,248,242,.3); border-top-color:var(--accent);
+  animation:busySpin .7s linear infinite;
+}
+@keyframes busySpin{ to{transform:rotate(360deg)} }
+
+.toast{
+  position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(0); z-index:50;
+  background:var(--ink); color:var(--paper); padding:12px 20px; border-radius:10px; font-size:13px; font-weight:600;
+  box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s;
+}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(-6px)}
+
+.note{font-size:11.5px; color:var(--ink-faint); line-height:1.6}
+.hr{border:none; border-top:1px solid var(--border); margin:0}
+
+/* disabled（編集不可の意）と、未入力・プレースホルダ（薄いグレー）は別物。
+   disabledでも実際に決まっている値は濃い文字色のまま表示する（背景・カーソルだけで
+   「今は編集できない」ことを示す） */
+input:disabled, select:disabled, textarea:disabled{background:var(--bg); color:var(--ink); cursor:not-allowed}
+
+/* 差し戻し理由などの入力をページ内で完結させるモーダル */
+.modalOverlay{
+  position:fixed; inset:0; background:rgba(28,20,8,.45); z-index:100;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.modalBox{background:var(--surface); border-radius:12px; padding:20px; width:100%; max-width:420px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:12px}
+.modalTitle{font-size:14px; font-weight:700}
+.modalBox textarea{
+  font:inherit; font-size:14px; padding:11px 12px; border-radius:7px; border:1px solid var(--border-strong);
+  background:var(--paper); color:var(--ink); width:100%; resize:vertical;
+}
+.modalActions{display:flex; justify-content:flex-end; gap:8px}
+
+/* ── QRスキャナー（旧kensa-kiroku中継ページの実装をそのまま流用） ── */
+.viewfinder{
+  position:relative; width:100%; max-width:360px; aspect-ratio:1/1; margin:0 auto;
+  background:#0F1D28; border-radius:14px; overflow:hidden;
+}
+.viewfinder video{width:100%; height:100%; object-fit:cover; display:block}
+.corner{position:absolute; width:30px; height:30px; border:3px solid var(--accent)}
+.corner.tl{top:14px; left:14px; border-right:none; border-bottom:none}
+.corner.tr{top:14px; right:14px; border-left:none; border-bottom:none}
+.corner.bl{bottom:14px; left:14px; border-right:none; border-top:none}
+.corner.br{bottom:14px; right:14px; border-left:none; border-top:none}
+.scanline{
+  position:absolute; left:14px; right:14px; height:2px; background:var(--accent);
+  box-shadow:0 0 8px var(--accent); animation:qrscan 2.4s ease-in-out infinite;
+}
+@keyframes qrscan{ 0%,100%{top:14px} 50%{top:calc(100% - 16px)} }
+#scanStatus{min-height:22px; text-align:center; font-size:12.5px; color:var(--ink-dim); margin-top:10px}
+
+/* ── サインイン画面 ── */
+#signinGate{
+  min-height:100vh; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:18px;
+  padding:24px; text-align:center; background:var(--bg);
+}
+#signinGate .mark{
+  width:56px; height:56px; border-radius:14px; background:var(--accent); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-weight:900; font-size:26px;
+}
+#signinGate h1{font-size:18px; margin:0}
+#signinGate p{font-size:12.5px; color:var(--ink-dim); margin:0; max-width:320px}
+#signinError{color:var(--fail); font-size:12.5px; max-width:320px}

@@ -2,187 +2,1501 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>検査記録ポータル | 西軽精機アプリ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>検査記録ポータル</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <meta name="theme-color" content="#1F3A52">
-<script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
-<style>
-  :root {
-    --navy: #1F3A52;
-    --amber: #F2A900;
-    --bg: #E9ECEF;
-    --text: #1D2226;
-    --border: #C7CDD3;
-    --gray: #5C6670;
-    --viewfinder-bg: #0F1D28;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
-    font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
-    display: flex; align-items: flex-start; justify-content: center; padding: 20px 14px;
-  }
-  .card {
-    width: 100%; max-width: 480px; background: #fff; border-radius: 14px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06); overflow: hidden;
-  }
-  .card-header { background: var(--navy); padding: 18px 24px 16px; color: #fff; text-align: center; }
-  .brand { font-size: 11px; letter-spacing: .08em; color: var(--amber); font-weight: 700; }
-  .card-header h1 { margin: 4px 0 0; font-size: 19px; font-weight: 700; }
-  .card-body { padding: 22px 24px 26px; }
-
-  .btn { width: 100%; padding: 13px; border-radius: 12px; border: none; font-size: 15px; font-weight: 700;
-    cursor: pointer; font-family: inherit; }
-  .primary-btn { background: var(--amber); color: var(--text); }
-  .secondary-btn { background: #fff; border: 1px solid var(--border); color: var(--gray); padding: 11px; }
-  .btn + .btn { margin-top: 10px; }
-  p.hint { margin: 0 0 18px; font-size: 13.5px; color: var(--gray); }
-
-  #homeView, #scanView { display: none; }
-  #homeView.active, #scanView.active { display: block; }
-  #homeView { text-align: center; padding: 10px 0 2px; }
-  .spinner {
-    width: 34px; height: 34px; margin: 0 auto 14px; border-radius: 50%;
-    border: 3px solid var(--border); border-top-color: var(--navy);
-    animation: spin .8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .viewfinder {
-    position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 340px;
-    background: var(--viewfinder-bg); border-radius: 14px; overflow: hidden; margin-bottom: 16px;
-  }
-  .viewfinder video { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .corner { position: absolute; width: 30px; height: 30px; border: 3px solid var(--amber); }
-  .corner.tl { top: 14px; left: 14px; border-right: none; border-bottom: none; }
-  .corner.tr { top: 14px; right: 14px; border-left: none; border-bottom: none; }
-  .corner.bl { bottom: 14px; left: 14px; border-right: none; border-top: none; }
-  .corner.br { bottom: 14px; right: 14px; border-left: none; border-top: none; }
-  .scanline {
-    position: absolute; left: 14px; right: 14px; height: 2px; background: var(--amber);
-    box-shadow: 0 0 8px var(--amber); animation: scan 2.4s ease-in-out infinite;
-  }
-  @keyframes scan { 0%,100% { top: 14px; } 50% { top: calc(100% - 16px); } }
-
-  #status { min-height: 22px; text-align: center; font-size: 13.5px; color: var(--gray); margin-bottom: 4px; }
-</style>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@500;600;700&family=Noto+Sans+Symbols+2&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-  <div class="card">
-    <div class="card-header">
-      <div class="brand">西軽精機アプリ</div>
-      <h1>検査記録ポータル</h1>
-    </div>
-    <div class="card-body">
 
-      <div id="homeView" class="active">
-        <div class="spinner"></div>
-        <p class="hint" style="margin:0">起動しています…</p>
+<!-- ══════ サインイン画面（認証されるまでこちらだけ表示） ══════ -->
+<div id="signinGate">
+  <div class="mark">検</div>
+  <h1>検査記録ポータル</h1>
+  <p>西軽精機のGoogleアカウント（@nishikaru.co.jp）でサインインしてください。</p>
+  <div id="g_id_onload"
+       data-client_id="TODO-REPLACE-WITH-REAL-CLIENT-ID.apps.googleusercontent.com"
+       data-callback="handleCredentialResponse"
+       data-auto_select="true"
+       data-cancel_on_tap_outside="false">
+  </div>
+  <div class="g_id_signin" data-type="standard"></div>
+  <p id="signinError" hidden></p>
+</div>
+
+<!-- ══════ 本体アプリ（サインイン後に表示） ══════ -->
+<div class="shell" id="appShell" hidden>
+  <div class="rail-spacer"></div>
+  <nav class="rail" id="railNav"><div class="rail-inner">
+    <div class="rail-brand" id="railBrand" title="タップで開閉">
+      <div class="mark">検</div>
+      <div class="brand-text"><b>検査記録ポータル</b><span>Ver. <span id="appVer">—</span></span></div>
+    </div>
+    <button class="nav-btn" data-go="home"><span class="ic">🏠</span><span class="label">ホーム</span></button>
+    <button class="nav-btn" data-go="new"><span class="ic">📝</span><span class="label">新規作成</span></button>
+    <button class="nav-btn" data-go="approve"><span class="ic">✅</span><span class="label">承認待ち</span><span class="navbadge" id="navBadgeApprove" hidden></span></button>
+    <button class="nav-btn" data-go="zuban"><span class="ic">📁</span><span class="label">図番ページ</span></button>
+    <button class="nav-btn" data-go="search"><span class="ic">🔍️</span><span class="label">検索・閲覧</span></button>
+    <div class="rail-flex-spacer"></div>
+    <div class="rail-user">
+      <div class="av" id="railAv">?</div>
+      <div class="who"><b id="railName">読み込み中…</b><span id="railRole">　</span></div>
+    </div>
+  </div></nav>
+
+  <main class="main">
+
+    <!-- ══════ ホーム ══════ -->
+    <section class="view" id="view-home">
+      <div class="pageHead">
+        <div><h1>ホーム</h1><div class="sub" id="homeToday"></div></div>
+        <button class="btn btn-accent" data-go="new">＋ 新規作成</button>
       </div>
 
-      <div id="scanView">
+      <div class="stats">
+        <div class="stat warn"><span class="n mono" id="statPending">—</span><span class="lbl">承認待ち件数</span></div>
+        <div class="stat fail"><span class="n mono" id="statFail">—</span><span class="lbl">今月の不合格件数</span></div>
+        <div class="stat ok"><span class="n mono" id="statDone">—</span><span class="lbl">今月の承認完了</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>最近の記録</h2><button class="btn btn-ghost btn-sm" data-go="search">すべて見る</button></div>
+        <div class="rlist" id="homeRecent"><div class="rempty">読み込み中…</div></div>
+      </div>
+    </section>
+
+    <!-- ══════ 新規作成 ══════ -->
+    <section class="view" id="view-new" hidden>
+      <div class="pageHead"><div><h1>新規作成</h1><div class="sub">開始方法を選んでください</div></div></div>
+
+      <div id="new-step-choice">
+        <div class="startChoices">
+          <div class="startCard" id="qrCard"><div class="glyph">📷</div><b>QRで読み取る</b><span>現品票のQRから製造番号を取得</span></div>
+          <div class="startCard" id="searchCard"><div class="glyph">🔍️</div><b>図番で検索</b><span>図番マスタから選ぶ、または新規図番を作成</span></div>
+        </div>
+      </div>
+
+      <div id="new-step-qr" hidden style="display:flex;flex-direction:column;gap:14px;align-items:center">
         <div class="viewfinder">
-          <video id="preview" playsinline muted></video>
+          <video id="qrVideo" playsinline muted></video>
           <div class="corner tl"></div><div class="corner tr"></div>
           <div class="corner bl"></div><div class="corner br"></div>
           <div class="scanline"></div>
         </div>
-        <div id="status">QRコードをかざしてください</div>
-        <button class="btn secondary-btn" onclick="backFromScan()">戻る</button>
+        <div id="scanStatus">QRコードを枠内に合わせてください</div>
+        <button class="btn btn-ghost btn-sm" id="qrCancelBtn">やめて戻る</button>
       </div>
 
+      <div id="new-step-found" hidden style="display:flex;flex-direction:column;gap:14px;align-items:center">
+        <div class="scan-result"><span class="ic">✓</span><div><b id="foundTitle">製造番号を読み取りました</b><span id="foundSub"></span></div></div>
+        <button class="btn btn-accent" id="toInspectFromQr">次へ（出荷仕様・品質記録を確認） →</button>
+      </div>
+
+      <div id="new-step-notfound" hidden style="display:flex;flex-direction:column;gap:14px;align-items:center">
+        <div class="scan-result" style="background:var(--fail-soft);border-color:var(--fail)"><span class="ic" style="color:var(--fail)">!</span><div><b id="notfoundTitle">製造番号が見つかりませんでした</b><span id="notfoundSub"></span></div></div>
+        <div style="display:flex; gap:10px">
+          <button class="btn btn-ghost btn-sm" id="notfoundRetry">もう一度スキャンする</button>
+          <button class="btn btn-ghost btn-sm" id="notfoundSearch">図番で検索する →</button>
+        </div>
+      </div>
+
+      <div id="new-step-search" hidden style="display:flex;flex-direction:column;gap:14px;align-items:center">
+        <div class="searchRow"><input type="text" id="zuSearch" list="zubanSearchSuggest" placeholder="図番を入力…"><button class="btn btn-ghost" id="zuSearchBtn">検索</button></div>
+        <div id="zuSearchResultCard" style="width:100%;max-width:420px" hidden>
+          <div id="zuSearchResult"></div>
+        </div>
+        <div class="note">見つからない図番の場合は、新しい図番として項目を新規に作成できます。</div>
+        <button class="btn btn-ghost btn-sm" id="toCreateZuban">＋ 新しい図番としてテンプレートを作成</button>
+      </div>
+
+      <div id="new-step-create" hidden style="display:flex; flex-direction:column; gap:16px">
+        <div class="card">
+          <div class="card-head"><h2>新しい図番のテンプレートを作成</h2></div>
+          <div style="padding:16px" class="formGrid">
+            <label class="fl">図番<input type="text" id="newZubanNo" placeholder="例: B7523-ZH310-A"></label>
+            <label class="fl">得意先<input type="text" id="newZubanCustomer" placeholder="例: 丸辰製作所"></label>
+            <label class="fl">品名<input type="text" id="newZubanName" placeholder="例: シャフト"></label>
+            <label class="fl">材質<input type="text" id="newZubanMaterial" placeholder="例: SUS303"></label>
+          </div>
+        </div>
+
+        <div class="card" id="tmplItemsCard">
+          <div class="card-head"><h2>検査項目</h2><span class="note">記号は、下の欄にカーソルを置いた状態でボタンを押すと入力されます（ポイントすると名称が出ます）。測定方法は欄をタップすると候補が出ます</span></div>
+          <div class="stickyToolbars">
+          <div class="symToolbar">
+            <div class="symGroup">
+              <button type="button" class="symBtn" data-sym="φ" title="直径(慣用)">φ</button>
+              <button type="button" class="symBtn" data-sym="□" title="角の一辺">□</button>
+              <button type="button" class="symBtn" data-sym="C" title="面取り">C</button>
+              <button type="button" class="symBtn" data-sym="R" title="半径">R</button>
+              <button type="button" class="symBtn" data-sym="°" title="度">°</button>
+              <button type="button" class="symBtn" data-sym="′" title="分">′</button>
+            </div>
+            <div class="symGroup">
+              <button type="button" class="symBtn" data-sym="⏤" title="真直度">⏤</button>
+              <button type="button" class="symBtn" data-sym="⏥" title="平面度">⏥</button>
+              <button type="button" class="symBtn" data-sym="○" title="真円度">○</button>
+              <button type="button" class="symBtn symBtn-lg" data-sym="⌭" title="円筒度">⌭</button>
+            </div>
+            <div class="symGroup">
+              <button type="button" class="symBtn symBtn-lg" data-sym="⌖" title="位置度">⌖</button>
+              <button type="button" class="symBtn" data-sym="◎" title="同心度・同軸度">◎</button>
+              <button type="button" class="symBtn symBtn-lg" data-sym="⌯" title="対称度">⌯</button>
+              <button type="button" class="symBtn" data-sym="↗" title="円周振れ">↗</button>
+              <button type="button" class="symBtn symBtn-lg" data-sym="⌰" title="全振れ">⌰</button>
+            </div>
+            <div class="symGroup">
+              <button type="button" class="symBtn" data-sym="∇" title="仕上げ記号(簡易)">∇</button>
+            </div>
+          </div>
+          <table class="tmplItems tmplItemsHeadOnly"><thead><tr><th>№</th><th>基準値</th><th>公差MAX</th><th>公差MIN</th><th>測定方法</th><th>備考</th><th></th></tr></thead></table>
+          </div>
+          <div class="tbl-wrap">
+            <table class="tmplItems" id="tmplItemsTable">
+              <tbody id="tmplItemsBody"></tbody>
+            </table>
+          </div>
+          <div style="padding:14px 16px"><button class="btn btn-ghost btn-sm" id="addTmplRowBtn">＋ 項目を追加</button></div>
+        </div>
+
+        <datalist id="methodSuggest">
+          <option value="M"></option><option value="B.M."></option><option value="P.G."></option><option value="S.G."></option>
+          <option value="N.G."></option><option value="R.G."></option><option value="B.G."></option><option value="I.M."></option>
+          <option value="P"></option><option value="I.G."></option><option value="F.T."></option><option value="P.T."></option>
+          <option value="N"></option>
+          <option value="M.E."></option><option value="S.E."></option><option value="T.G."></option><option value="L.M."></option>
+          <option value="R.T."></option><option value="I.T."></option><option value="D.C."></option><option value="C.G."></option>
+          <option value="H.T."></option><option value="P.P."></option><option value="BST"></option><option value="B.M.B."></option>
+          <option value="S.P.M."></option><option value="P.D.M."></option><option value="目視"></option>
+        </datalist>
+        <datalist id="remarkSuggest">
+          <option value="(熱処理前)"></option><option value="(表面処理前)"></option><option value="(研磨前)"></option>
+          <option value="(熱処理後)"></option><option value="(表面処理後)"></option><option value="(研磨後)"></option>
+        </datalist>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end">
+          <button class="btn btn-ghost" id="cancelTmpl">キャンセル</button>
+          <button class="btn btn-accent" id="saveTmpl">テンプレートを保存する</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ 図番ページ ══════ -->
+    <section class="view" id="view-zuban" hidden>
+      <div class="pageHead">
+        <div><h1><span class="mono" id="zubanTitle">—</span> 図番ページ</h1><div class="sub" id="zubanSub">検査を始める前に出荷仕様・品質記録を確認してください</div></div>
+        <button class="btn btn-accent" id="startInspectFromZuban">確認して検査を始める →</button>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>出荷仕様</h2><span class="note">図番ごとに1件・上書き。誤って変更しないよう「編集する」を押すまで変更できません</span></div>
+        <div style="padding:16px" class="formGrid">
+          <label class="fl">検査記録の添付<select id="sp_検査記録の添付" disabled><option>必要</option><option>不要</option></select></label>
+          <label class="fl">ミルシート<select id="sp_ミルシート" disabled><option>必要</option><option>不要</option></select></label>
+          <label class="fl">トレー梱包の種類<select id="sp_トレー梱包の種類" disabled></select></label>
+          <label class="fl">NG・限度見本の有無<select id="sp_NG・限度見本の有無" disabled><option>有</option><option>無</option></select></label>
+          <label class="fl">カット品<select id="sp_カット品" disabled><option>必要</option><option>不要</option></select></label>
+          <label class="fl">テストピース<select id="sp_テストピース" disabled><option>必要</option><option>不要</option></select></label>
+          <label class="fl">借用ゲージ等<select id="gaugeHas" disabled><option>無</option><option>有</option></select></label>
+          <label class="fl" id="gaugeTypeWrap">ゲージの種類<input type="text" id="sp_借用ゲージの種類" disabled></label>
+          <label class="fl">キーエンス測定<select id="keyenceHas" disabled><option>無</option><option>有</option></select></label>
+          <label class="fl" id="keyenceProgWrap" hidden>プログラム名<input type="text" id="sp_キーエンスプログラム名" disabled></label>
+          <label class="fl">外観ランク<select id="sp_外観ランク" disabled><option>A</option><option>B</option><option>C</option></select></label>
+        </div>
+        <div style="padding:0 16px 16px; display:flex; justify-content:flex-end; gap:8px">
+          <button class="btn btn-ghost btn-sm" id="editShipping">✏️ 編集する</button>
+          <button class="btn btn-ghost btn-sm" id="cancelShipping" style="display:none">キャンセル</button>
+          <button class="btn btn-accent btn-sm" id="saveShipping" style="display:none">保存する</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>品質情報</h2><button class="btn btn-ghost btn-sm" id="addQualityLog">＋ 記録を追加</button></div>
+        <div style="padding:10px 16px 0"><span class="note">外観ランク（図番ごとに固定・出荷仕様で編集）: <b id="qlRankFixed" style="color:var(--rail)">-</b></span></div>
+        <div id="qualityLogForm" hidden style="padding:16px; display:flex; flex-direction:column; gap:10px; border-bottom:1px solid var(--border)">
+          <b id="qlFormTitle" style="font-size:12.5px">記録を追加</b>
+          <div class="formGrid">
+            <label class="fl">写真添付<input type="text" placeholder="（未実装のため省略）" disabled></label>
+          </div>
+          <label class="fl">内容<input type="text" id="qlContent" placeholder="例: ◆端面に僅かな打痕があったが公差内のため合格とした"></label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-dim)"><input type="checkbox" id="qlShare"> 共有する（全部署・西軽精機ナレッジにも表示）</label>
+          <div style="display:flex; gap:8px">
+            <button class="btn btn-accent btn-sm" id="saveQualityLog">保存</button>
+            <button class="btn btn-ghost btn-sm" id="qlCancel">キャンセル</button>
+          </div>
+        </div>
+        <div class="rlist" id="qualityLogList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>検査記録テンプレート</h2><span class="note" id="zubanItemCount">—</span></div>
+        <div style="padding:16px; display:flex; gap:8px; flex-wrap:wrap">
+          <button class="btn btn-ghost" id="editZubanTemplate">✏️ テンプレートを編集する</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>過去の検査記録</h2><button class="btn btn-ghost btn-sm" data-go="search">すべて見る</button></div>
+        <div class="rlist" id="zubanPastRecords"></div>
+      </div>
+    </section>
+
+    <!-- ══════ 検査入力 ══════ -->
+    <section class="view" id="view-inspect" hidden>
+      <div class="pageHead">
+        <div><h1><span class="mono" id="inspectTitle">—</span> 検査記録</h1><div class="sub" id="inspectSub">新規作成</div></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap">
+          <a class="btn btn-ghost btn-sm" id="viewPdfBtn" href="#" target="_blank" hidden>📄 PDFを見る</a>
+          <button class="btn btn-ghost btn-sm" id="peekZubanPage">📁 図番ページを見る</button>
+          <span class="note" id="autoSaveIndicator" style="align-self:center"></span>
+          <button class="btn btn-ghost" id="saveDraftBtn">下書き保存して戻る</button>
+        </div>
+      </div>
+      <div class="note" id="inspectModeNote" hidden></div>
+
+      <div class="card">
+        <div class="card-head"><h2>基本情報</h2></div>
+        <div style="padding:16px" class="formGrid">
+          <label class="fl">製造番号<input type="text" id="in_mfgNo" class="mono"></label>
+          <label class="fl">検査日<input type="date" id="in_date"></label>
+          <label class="fl">検査員<select id="in_inspector"></select></label>
+          <label class="fl">ロット数<input type="text" id="in_lotCount"></label>
+          <label class="fl">抜取数<input type="text" id="in_sampleCount" title="ロット数から自動計算されます（直接変更も可能）"></label>
+          <label class="fl">ロットNo.<input type="text" id="in_lotNo"></label>
+          <label class="fl">材質/ロットNo.<input type="text" id="in_material"></label>
+          <label class="fl">処理<input type="text" id="in_process"></label>
+          <label class="fl">受注・客先番号<input type="text" id="in_orderNo"></label>
+          <label class="fl" style="grid-column:1 / -1">備考<textarea id="in_note" placeholder="任意" rows="2"></textarea></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2 id="inspectItemsHead">検査項目</h2><span class="note">公差内なら緑、範囲外は赤。列1〜Nはサンプル番号（横にスクロールできます）</span></div>
+        <div class="tbl-wrap">
+          <table class="items" id="itemsTable">
+            <thead><tr id="itemsHeadRow"></tr></thead>
+            <tbody id="itemsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="judgeBar" id="judgeBar">
+        <div class="status"><span class="dot"></span><b id="judgeText">項目を読み込み中…</b></div>
+        <div style="display:flex; gap:10px" id="editActions">
+          <label class="fl" style="min-width:140px">承認依頼先<select id="approverSelect"></select></label>
+          <button class="btn btn-accent" id="sendApproval" style="align-self:flex-end">承認依頼を送信</button>
+        </div>
+        <div style="display:none; gap:10px" id="reviewActions">
+          <button class="btn btn-fail" id="reviewReturnBtn">差し戻す</button>
+          <button class="btn btn-ok" id="reviewApproveBtn">承認する</button>
+        </div>
+        <div style="display:none; gap:10px" id="reopenActions">
+          <button class="btn btn-fail" id="reopenBtn">承認を取り消して差し戻す</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ 承認待ち ══════ -->
+    <section class="view" id="view-approve" hidden>
+      <div class="pageHead"><div><h1>承認待ち</h1><div class="sub" id="approveCount">—</div></div></div>
+
+      <div id="approve-list">
+        <div class="card"><div class="rlist" id="approveListBody"><div class="rempty">読み込み中…</div></div></div>
+      </div>
+    </section>
+
+    <!-- ══════ 検索・閲覧 ══════ -->
+    <section class="view" id="view-search" hidden>
+      <div class="pageHead"><div><h1>検索・閲覧</h1><div class="sub">検査記録を横断検索</div></div></div>
+
+      <div class="card">
+        <div style="padding:16px" class="formGrid">
+          <label class="fl">図番<input type="text" id="sr_zuban" list="zubanSearchSuggest" placeholder="例: B7523"></label>
+          <datalist id="zubanSearchSuggest"></datalist>
+          <label class="fl">製造番号<input type="text" id="sr_mfgNo" placeholder="例: 24A-0981" class="mono"></label>
+          <label class="fl">検査員<select id="sr_inspector"><option value="">全員</option></select></label>
+          <label class="fl">承認状況<select id="sr_state"><option value="">すべて</option><option>承認済み</option><option>承認待ち</option><option>記入中</option><option>差し戻し</option></select></label>
+        </div>
+        <div style="padding:0 16px 16px"><button class="btn btn-accent btn-sm" id="searchBtn">検索</button></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2 id="searchResultCount">結果</h2></div>
+        <div class="rlist" id="searchResultList"><div class="rempty">検索条件を指定してください</div></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="busyOverlay" id="busyOverlay" hidden><div class="busyCard"><div class="busyRing"></div>通信中…</div></div>
+
+<div class="modalOverlay" id="modalOverlay" hidden>
+  <div class="modalBox">
+    <div class="modalTitle" id="modalTitle"></div>
+    <textarea id="modalInput" rows="3"></textarea>
+    <div class="modalActions">
+      <button class="btn btn-ghost" id="modalCancel">キャンセル</button>
+      <button class="btn btn-accent" id="modalOk">OK</button>
     </div>
   </div>
+</div>
 
-  <script>
-    // 検査記録ポータル 本番デプロイURL
-    const PORTAL_URL = "https://script.google.com/a/macros/nishikaru.co.jp/s/AKfycbw1G-JzrDNjs1nzm67WDZFis2252Ir2g4Q8QNLHIpsIN1Ell-1ZWnDu_e8h_zEoALmn/exec";
+<script>
+// 検査記録ポータル 本番GASデプロイURL（JSON API）
+var GAS_URL = 'https://script.google.com/a/macros/nishikaru.co.jp/s/AKfycbw1G-JzrDNjs1nzm67WDZFis2252Ir2g4Q8QNLHIpsIN1Ell-1ZWnDu_e8h_zEoALmn/exec';
+var idToken = null, myEmail = '', myName = '';
 
-    const video = document.getElementById('preview');
-    const statusEl = document.getElementById('status');
-    const homeView = document.getElementById('homeView');
-    const scanView = document.getElementById('scanView');
+/* ---------- Googleサインイン（勤怠管理ポータルと同じ方式） ---------- */
+// IDトークンの中身はUTF-8。atob()は1バイトずつ文字にするだけなので、そのままだと
+// 日本語の名前が文字化けする。UTF-8として読み直す（表示用のみ、認可はGAS側でトークンを
+// 再検証して得たメールアドレスだけを信用する＝verifyGoogleToken_、Auth.gs）
+function base64UrlDecode_(str){
+  var base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (base64.length % 4) base64 += '=';
+  var bin = atob(base64);
+  var bytes = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(bytes);
+}
+window.handleCredentialResponse = function(response){
+  idToken = response.credential;
+  try {
+    var payload = JSON.parse(base64UrlDecode_(idToken.split('.')[1]));
+    myEmail = payload.email; myName = payload.name || '';
+  } catch(e){}
+  document.getElementById('signinError').hidden = true;
+  document.getElementById('signinGate').hidden = true;
+  document.getElementById('appShell').hidden = false;
+  startApp();
+};
+// IDトークンは約1時間で失効する。45分おきに裏で再取得を促し、失効エラーを受けたときも
+// その場で1回だけ再取得してリトライする
+function refreshToken_(){
+  return new Promise(function(resolve){
+    try { google.accounts.id.prompt(); } catch(e){}
+    setTimeout(resolve, 1500);
+  });
+}
+setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 60 * 1000);
 
-    let mediaStream = null;
-    let scanning = false;
-
-    function showView(view) {
-      [homeView, scanView].forEach(v => v.classList.remove('active'));
-      view.classList.add('active');
-    }
-
-    function openPortal(mfgNo) {
-      const url = mfgNo ? (PORTAL_URL + '?mfgNo=' + encodeURIComponent(mfgNo)) : PORTAL_URL;
-      location.href = url;
-    }
-
-    async function startScan() {
-      showView(scanView);
-      statusEl.textContent = "QRコードをかざしてください";
-      try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 } } });
-        video.srcObject = mediaStream;
-        await video.play();
-        scanning = true;
-        requestAnimationFrame(tick);
-      } catch (e) {
-        statusEl.textContent = "カメラを起動できませんでした";
-      }
-    }
-
-    function stopStream() {
-      scanning = false;
-      if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
-    }
-
-    function backFromScan() {
-      stopStream();
-      openPortal();
-    }
-
-    function playBeep() {
-      try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.connect(gainNode); gainNode.connect(audioCtx.destination);
-        oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        oscillator.start(); oscillator.stop(audioCtx.currentTime + 0.1);
-      } catch (e) {}
-    }
-
-    function tick() {
-      if (!scanning) return;
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        const canvas = document.createElement("canvas");
-        canvas.height = video.videoHeight; canvas.width = video.videoWidth;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
-        if (code) {
-          playBeep();
-          statusEl.textContent = "読み取りました。開いています…";
-          stopStream();
-          openPortal(code.data);
-          return;
-        }
-      }
-      requestAnimationFrame(tick);
-    }
-
-    // ?scan=1 が付いていればQR読み取りへ、無ければそのままポータルを開く
-    // （このページ自体がPWAのホーム画面アイコンの起動先を兼ねているため）
-    if (new URLSearchParams(location.search).get('scan') === '1') {
-      showView(scanView);
-      startScan();
+(function(){
+  /* ---------- JSON APIを呼ぶヘルパー（以前のgoogle.script.run版と同じrun(name,...)で使えるようにする） ---------- */
+  var API_SPEC = {
+    getHome: { method:'GET', fields:[] },
+    getZubanPage: { method:'GET', fields:['zuban'] },
+    scanMfgNo: { method:'GET', fields:['mfgNo'] },
+    getApprovalList: { method:'GET', fields:[] },
+    getRecord: { method:'GET', fields:['recordId'] },
+    searchRecords: { method:'GET', fields:['filter'] },
+    listZubanNames: { method:'GET', fields:[] },
+    listPeopleOptions: { method:'GET', fields:[] },
+    saveShippingSpec: { method:'POST', fields:['zuban','data'] },
+    addQualityLog: { method:'POST', fields:['zuban','data'] },
+    updateQualityLog: { method:'POST', fields:['id','data'] },
+    saveZubanTemplate: { method:'POST', fields:['data'] },
+    saveInspectionRecord: { method:'POST', fields:['payload','targetState'] },
+    approveRecord: { method:'POST', fields:['recordId'] },
+    returnRecord: { method:'POST', fields:['recordId','comment'] },
+    reopenApprovedRecord: { method:'POST', fields:['recordId','comment'] }
+  };
+  function apiCall_(name, args, retried){
+    var spec = API_SPEC[name];
+    if(!spec) return Promise.reject(new Error('未対応の呼び出しです: ' + name));
+    var params = {};
+    spec.fields.forEach(function(fname, i){
+      var v = args[i];
+      if(v === undefined || v === null) return;
+      params[fname] = v;
+    });
+    var req;
+    if(spec.method === 'GET'){
+      var qs = 'mode=' + encodeURIComponent(name) + '&token=' + encodeURIComponent(idToken || '');
+      Object.keys(params).forEach(function(k){
+        var v = params[k];
+        var s = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+        qs += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(s);
+      });
+      req = fetch(GAS_URL + '?' + qs);
     } else {
-      openPortal();
+      var body = Object.assign({ action: name, token: idToken || '' }, params);
+      req = fetch(GAS_URL, { method:'POST', body: JSON.stringify(body) });
     }
-  </script>
+    return req.then(function(r){ return r.json(); }).then(function(res){
+      if(res && res.ok === false && /トークン無効/.test(res.error || '') && !retried){
+        return refreshToken_().then(function(){ return apiCall_(name, args, true); });
+      }
+      if(res && res.ok === false) throw new Error(res.error || '不明なエラーです');
+      return res;
+    });
+  }
+
+  // 通信中は画面中央にカードを出して操作をブロックする（複数同時に走っても
+  // 最後の1件が終わるまで出し続けるようbusyCountで数える）
+  var busyCount = 0;
+  function showBusy(){ busyCount++; document.getElementById('busyOverlay').hidden = false; }
+  function hideBusy(){ busyCount = Math.max(0, busyCount - 1); if(busyCount === 0) document.getElementById('busyOverlay').hidden = true; }
+  function run(name){
+    var args = Array.prototype.slice.call(arguments, 1);
+    showBusy();
+    return apiCall_(name, args).finally(hideBusy);
+  }
+  // 自動保存など、通信中オーバーレイを出したくない静かな呼び出し
+  function runSilent(name){
+    var args = Array.prototype.slice.call(arguments, 1);
+    return apiCall_(name, args);
+  }
+  function toast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._tm); t._tm = setTimeout(function(){ t.classList.remove('show'); }, 2800);
+  }
+  function errToast(err){ toast('エラー: ' + (err && err.message ? err.message : err)); }
+
+  var pill = { '承認済み': 'approved', '承認待ち': 'waiting', '記入中': 'progress', '差し戻し': 'fail' };
+
+  /* ---------- 画面切り替え ---------- */
+  var views = ['home','new','approve','zuban','search','inspect'];
+  // zubanPage: 図番ページで今表示している図番（閲覧だけなら検査入力の状態を壊さない）
+  // inspect: 検査入力で今作業中のセッション（新規・下書きの続き・差し戻しの再編集・承認待ちの確認・承認済みの閲覧）
+  // returnToInspect: 図番ページを「入力中の検査の確認のため」開いたときだけtrue（trueの間だけ、確認して戻ると同じセッションに戻る）
+  var state = { zubanPage: null, inspect: null, returnToInspect: false, me: null, editingQlId: null, inspectEditable: false };
+  var allZubanNames = [];
+  function isApprover_(){
+    return !!(state.me && (state.me.role || '').indexOf('承認者') >= 0);
+  }
+  // 検査員欄をログイン中の人の名前に合わせる（候補に無い名前なら何もしない）
+  function defaultInspector_(){
+    var sel = document.getElementById('in_inspector');
+    if(!state.me || !state.me.name) return;
+    var hit = Array.prototype.some.call(sel.options, function(o){ return o.value === state.me.name; });
+    if(hit) sel.value = state.me.name;
+  }
+
+  /* ---------- ページ内モーダル（差し戻し理由などをprompt()の代わりに使う） ---------- */
+  function askText(title, placeholder){
+    return new Promise(function(resolve){
+      var overlay = document.getElementById('modalOverlay');
+      var input = document.getElementById('modalInput');
+      document.getElementById('modalTitle').textContent = title;
+      input.value = ''; input.placeholder = placeholder || '';
+      overlay.hidden = false;
+      input.focus();
+      var okBtn = document.getElementById('modalOk'), cancelBtn = document.getElementById('modalCancel');
+      function cleanup(val){
+        overlay.hidden = true;
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+        resolve(val);
+      }
+      function onOk(){ cleanup(input.value); }
+      function onCancel(){ cleanup(null); }
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
+    });
+  }
+
+  function go(name){
+    if(name !== 'new') stopScan();
+    views.forEach(function(v){
+      var el = document.getElementById('view-'+v);
+      if(el) el.hidden = (v !== name);
+    });
+    document.querySelectorAll('.nav-btn').forEach(function(b){
+      b.classList.toggle('active', b.dataset.go === name);
+    });
+    if(name === 'new') resetNewFlow();
+    if(name === 'approve') loadApproveList();
+    if(name === 'home') loadHome();
+    window.scrollTo(0,0);
+  }
+  document.querySelectorAll('[data-go]').forEach(function(el){
+    el.addEventListener('click', function(){ go(el.dataset.go); });
+  });
+  // レールはホバーで広がる。タブレットのタッチ操作ではホバーが効かないため、
+  // ロゴ部分をタップしても開閉できるようにする
+  document.getElementById('railBrand').addEventListener('click', function(){
+    document.getElementById('railNav').classList.toggle('pinned');
+  });
+
+  /* ---------- ホーム ---------- */
+  function loadHome(){
+    document.getElementById('homeToday').textContent = '読み込み中…';
+    run('getHome').then(function(d){
+      state.me = d.me;
+      document.querySelector('.nav-btn[data-go="approve"]').hidden = !isApprover_();
+      var badge = document.getElementById('navBadgeApprove');
+      if(isApprover_() && d.stats.pending > 0){ badge.textContent = d.stats.pending; badge.hidden = false; }
+      else { badge.hidden = true; }
+      document.getElementById('appVer').textContent = d.version;
+      document.getElementById('railName').textContent = d.me.name;
+      document.getElementById('railRole').textContent = d.me.role;
+      document.getElementById('railAv').textContent = (d.me.name || '?').slice(0,1);
+      document.getElementById('homeToday').textContent = d.today + ' の状況';
+      document.getElementById('statPending').textContent = d.stats.pending;
+      document.getElementById('statFail').textContent = d.stats.failThisMonth;
+      document.getElementById('statDone').textContent = d.stats.doneThisMonth;
+      var box = document.getElementById('homeRecent');
+      box.innerHTML = '';
+      if(!d.recent.length){ box.innerHTML = '<div class="rempty">まだ記録がありません</div>'; return; }
+      d.recent.forEach(function(r){
+        box.appendChild(rrow_(r.zuban, metaLine_(r), r.state, r.date, function(){
+          openAnyRecord(r.recordId);
+        }));
+      });
+    }).catch(errToast);
+  }
+  function rrow_(zu, meta, stateLabel, date, onClick){
+    var row = document.createElement('div'); row.className = 'rrow';
+    row.innerHTML = '<div><div class="zu"></div><div class="meta"></div></div>'+
+      '<div><span class="pill"></span></div><div class="date"></div><div class="arrow">›</div>';
+    row.querySelector('.zu').textContent = zu;
+    row.querySelector('.meta').textContent = meta;
+    var p = row.querySelector('.pill'); p.textContent = stateLabel; p.className = 'pill ' + (pill[stateLabel] || '');
+    row.querySelector('.date').textContent = date;
+    if(onClick) row.addEventListener('click', onClick);
+    return row;
+  }
+  // 一覧の2行目（得意先・製造番号・検査員・承認者をまとめて表示）
+  function metaLine_(r){
+    var parts = [];
+    if(r.customer) parts.push('得意先: ' + r.customer);
+    if(r.mfgNo) parts.push('製造番号: ' + r.mfgNo);
+    if(r.inspector) parts.push('検査員: ' + r.inspector);
+    if(r.approver) parts.push('承認者: ' + r.approver);
+    return parts.join('　/　');
+  }
+
+  /* ---------- 新規作成 ---------- */
+  function resetNewFlow(){
+    document.getElementById('new-step-choice').hidden = false;
+    document.getElementById('new-step-qr').hidden = true;
+    document.getElementById('new-step-found').hidden = true;
+    document.getElementById('new-step-notfound').hidden = true;
+    document.getElementById('new-step-search').hidden = true;
+    document.getElementById('new-step-create').hidden = true;
+    document.getElementById('zuSearchResultCard').hidden = true;
+  }
+  document.getElementById('qrCard').addEventListener('click', function(){
+    document.getElementById('new-step-choice').hidden = true;
+    document.getElementById('new-step-qr').hidden = false;
+    startScan();
+  });
+  document.getElementById('qrCancelBtn').addEventListener('click', function(){
+    stopScan();
+    document.getElementById('new-step-qr').hidden = true;
+    document.getElementById('new-step-choice').hidden = false;
+  });
+  document.getElementById('searchCard').addEventListener('click', function(){
+    document.getElementById('new-step-choice').hidden = true;
+    document.getElementById('new-step-search').hidden = false;
+  });
+
+  /* ---------- QRコード読み取り（カメラ+jsQR。iframeに入らないGitHub Pages単独ページなので直接使える） ---------- */
+  var qrStream = null, qrScanning = false;
+  function startScan(){
+    var statusEl = document.getElementById('scanStatus');
+    statusEl.textContent = 'カメラを起動しています…';
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      statusEl.textContent = 'このブラウザはカメラに対応していません。図番で検索してください';
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } }).then(function(stream){
+      qrStream = stream;
+      var video = document.getElementById('qrVideo');
+      video.srcObject = stream;
+      video.play();
+      qrScanning = true;
+      statusEl.textContent = 'QRコードを枠内に合わせてください';
+      requestAnimationFrame(scanTick);
+    }).catch(function(err){
+      statusEl.textContent = 'カメラを起動できませんでした（' + err.message + '）。図番で検索してください';
+    });
+  }
+  function stopScan(){
+    qrScanning = false;
+    if(qrStream){ qrStream.getTracks().forEach(function(t){ t.stop(); }); qrStream = null; }
+  }
+  function playBeep_(){
+    try {
+      var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var oscillator = audioCtx.createOscillator(), gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode); gainNode.connect(audioCtx.destination);
+      oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      oscillator.start(); oscillator.stop(audioCtx.currentTime + 0.1);
+    } catch(e){}
+  }
+  function scanTick(){
+    if(!qrScanning) return;
+    var video = document.getElementById('qrVideo');
+    if(video.readyState === video.HAVE_ENOUGH_DATA){
+      var canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      var code = (typeof jsQR === 'function') ? jsQR(imageData.data, imageData.width, imageData.height) : null;
+      if(code && code.data){
+        playBeep_();
+        stopScan();
+        document.getElementById('new-step-qr').hidden = true;
+        handleScannedMfgNo(code.data.trim());
+        return;
+      }
+    }
+    requestAnimationFrame(scanTick);
+  }
+
+  /* ---------- QRコード読み取り結果の処理（製造番号→進捗状況照会で図番解決） ---------- */
+  function handleScannedMfgNo(mfgNo){
+    run('scanMfgNo', mfgNo).then(function(res){
+      if(!res.found){
+        document.getElementById('new-step-notfound').hidden = false;
+        document.getElementById('notfoundSub').textContent = '製造番号「' + res.mfgNo + '」が進捗状況照会に見つかりませんでした';
+        return;
+      }
+      state.pendingMfgNo = res.mfgNo;
+      if(res.hasTemplate){
+        document.getElementById('new-step-found').hidden = false;
+        document.getElementById('foundTitle').textContent = '製造番号 ' + res.mfgNo + ' を読み取りました';
+        document.getElementById('foundSub').textContent = '図番 ' + res.zuban + ' / 得意先 ' + (res.customer || '-');
+        state.zubanPage = { zuban: res.zuban, info: res.info };
+      } else {
+        // 図番は分かったがテンプレートが無い図番：新規テンプレート作成へ誘導する
+        openTemplateEditorForZuban({ zuban: res.zuban, customer: res.customer, name: res.name, items: [] });
+        toast('図番 ' + res.zuban + ' のテンプレートがまだ無いため、作成画面を開きました');
+      }
+    }).catch(function(e){ document.getElementById('new-step-qr').hidden = false; errToast(e); });
+  }
+  document.getElementById('notfoundRetry').addEventListener('click', function(){
+    document.getElementById('new-step-notfound').hidden = true;
+    document.getElementById('new-step-qr').hidden = false;
+    startScan();
+  });
+  document.getElementById('notfoundSearch').addEventListener('click', function(){
+    document.getElementById('new-step-notfound').hidden = true;
+    document.getElementById('new-step-search').hidden = false;
+  });
+  document.getElementById('toInspectFromQr').addEventListener('click', function(){ state.returnToInspect = false; openZubanPage(state.zubanPage.zuban); });
+
+  document.getElementById('zuSearchBtn').addEventListener('click', doZubanSearch);
+  document.getElementById('zuSearch').addEventListener('keydown', function(e){ if(e.key === 'Enter') doZubanSearch(); });
+  // 図番は完全一致ではなく部分一致で候補を全部出す（先読み済みのallZubanNamesから）
+  function doZubanSearch(){
+    var q = document.getElementById('zuSearch').value.trim();
+    if(!q) return;
+    var card = document.getElementById('zuSearchResultCard'), list = document.getElementById('zuSearchResult');
+    list.innerHTML = ''; card.hidden = false;
+    var matches = allZubanNames.filter(function(n){ return n.indexOf(q) >= 0; });
+    if(!matches.length){
+      list.innerHTML = '<div class="rempty">「'+q+'」に一致する図番テンプレートは見つかりませんでした</div>';
+      document.getElementById('newZubanNo').value = q;
+      return;
+    }
+    matches.slice(0, 30).forEach(function(zuban){
+      var hit = document.createElement('div');
+      hit.className = 'scan-result clickable';
+      hit.style.marginBottom = '8px';
+      hit.innerHTML = '<span class="ic">📁</span><div><b></b><span class="sub">タップしてテンプレートを開く</span></div><span class="chev">›</span>';
+      hit.querySelector('b').textContent = zuban;
+      hit.addEventListener('click', function(){ state.returnToInspect = false; openZubanPage(zuban); });
+      list.appendChild(hit);
+    });
+  }
+
+  /* ---------- 新規図番テンプレート作成 ---------- */
+  function renumberTmplRows(){
+    var rows = document.querySelectorAll('#tmplItemsBody tr');
+    rows.forEach(function(tr,i){
+      tr.querySelector('td.tno').textContent = i+1;
+      tr.querySelector('.moveUpBtn').disabled = (i === 0);
+      tr.querySelector('.moveDownBtn').disabled = (i === rows.length-1);
+    });
+  }
+  // JIS B 0405（普通公差・長さ寸法・中級 m）：基準値を入れたとき、公差MAX・MINが未入力なら自動で入れる
+  // （手で公差を入れている場合は上書きしない。0.5mm以下・4000mm超は対象外）
+  var JIS_GENERAL_TOL_M = [[3,0.1],[6,0.1],[30,0.2],[120,0.3],[400,0.5],[1000,0.8],[2000,1.2],[4000,2]];
+  function jisGeneralTol_(nominal){
+    if(nominal === null || nominal <= 0.5) return null;
+    for(var i=0;i<JIS_GENERAL_TOL_M.length;i++){ if(nominal <= JIS_GENERAL_TOL_M[i][0]) return JIS_GENERAL_TOL_M[i][1]; }
+    return null;
+  }
+
+  // 嵌め合い公差（ISO286 / JIS B 0401）：基準値欄に「φ12H7」のように等級記号を続けて入れると、
+  // 寸法区分から公差MAX・MINを自動計算する。単位はμm。
+  // クリアランスはめあい（e/f/g/h・E/F/G/H、軸=小文字は-側、穴=大文字は+側）のみ全面対応。
+  // しまりばめ側（k/m/n/p/r/s/t等）は符号が逆転するため対象外とし、js6・k6・p6のみ従来通り個別対応
+  var ISO_FIT_RANGES = [3,6,10,18,30,50,80,120,180,250,315,400,500];
+  var ISO_IT5  = [4,5,6,8,9,11,13,15,18,20,23,25,27];
+  var ISO_IT6  = [6,8,9,11,13,16,19,22,25,29,32,36,40];
+  var ISO_IT7  = [10,12,15,18,21,25,30,35,40,46,52,57,63];
+  var ISO_IT8  = [14,18,22,27,33,39,46,54,63,72,81,89,97];
+  var ISO_IT9  = [25,30,36,43,52,62,74,87,100,115,130,140,155];
+  var ISO_IT10 = [40,48,58,70,84,100,120,140,160,185,210,230,250];
+  var ISO_IT_TABLE = { 5: ISO_IT5, 6: ISO_IT6, 7: ISO_IT7, 8: ISO_IT8, 9: ISO_IT9, 10: ISO_IT10 };
+  // 軸（小文字）の基礎寸法差es。穴（大文字、同じ文字）はこの符号反転がEI
+  var ISO_ES_SHAFT = {
+    e: [-14,-20,-25,-32,-40,-50,-60,-72,-85,-100,-110,-125,-135],
+    f: [-6,-10,-13,-16,-20,-25,-30,-36,-43,-50,-56,-62,-68],
+    g: [-2,-4,-5,-6,-7,-9,-10,-12,-14,-15,-17,-18,-20],
+    h: [0,0,0,0,0,0,0,0,0,0,0,0,0]
+  };
+  var ISO_SUPPORTED_CODES = [
+    'e7','e8','e9','f6','f7','f8','g5','g6','h5','h6','h7','h8','h9',
+    'E7','E8','E9','F6','F7','F8','G6','G7','H6','H7','H8','H9','H10'
+  ];
+  function isoFitIndex_(nominal){
+    if(nominal === null || nominal <= 0) return -1;
+    for(var i=0;i<ISO_FIT_RANGES.length;i++){ if(nominal <= ISO_FIT_RANGES[i]) return i; }
+    return -1;
+  }
+  function fmtSignedMm_(um){
+    var v = Math.round(um) / 1000;
+    if(v === 0) return '+0';
+    return (v > 0 ? '+' : '') + v;
+  }
+  function clearanceShaftTol_(es, it){ return { max: fmtSignedMm_(es), min: fmtSignedMm_(es - it) }; }
+  function clearanceHoleTol_(ei, it){ return { max: fmtSignedMm_(ei + it), min: fmtSignedMm_(ei) }; }
+  function isoFitTol_(code, nominal){
+    var i = isoFitIndex_(nominal);
+    if(i < 0) return null;
+    var it6 = ISO_IT6[i];
+    // 従来対応のしまりばめ寄りの3種（個別対応のまま）
+    if(code === 'js6') return { max: fmtSignedMm_(it6/2), min: fmtSignedMm_(-it6/2) };
+    if(code === 'k6'){ var eiK=[0,1,1,1,2,2,2,3,3,4,4,4,5][i]; return { max: fmtSignedMm_(eiK+it6), min: fmtSignedMm_(eiK) }; }
+    if(code === 'p6'){ var eiP=[6,12,15,18,22,26,32,37,43,50,56,62,68][i]; return { max: fmtSignedMm_(eiP+it6), min: fmtSignedMm_(eiP) }; }
+    if(ISO_SUPPORTED_CODES.indexOf(code) < 0) return null;
+    var m = code.match(/^([a-zA-Z]+)(\d{1,2})$/);
+    var letter = m[1], grade = Number(m[2]);
+    var it = ISO_IT_TABLE[grade][i];
+    var lower = letter.toLowerCase();
+    var esShaft = ISO_ES_SHAFT[lower][i];
+    return (letter === lower) ? clearanceShaftTol_(esShaft, it) : clearanceHoleTol_(-esShaft, it);
+  }
+  var FIT_CODE_RE = new RegExp('(' + ['js6','k6','p6'].concat(ISO_SUPPORTED_CODES).join('|') + ')\\s*$');
+  function isoFitTolFromText_(text){
+    var m = String(text || '').match(FIT_CODE_RE);
+    if(!m) return null;
+    var nominal = nominalTol(text.slice(0, m.index));
+    return isoFitTol_(m[1], nominal);
+  }
+  // 公差MAX・MINは必ず+かーを付ける（符号無しの数字を入れたらblur時に自動で補う。MAX等の特殊表記はそのまま）
+  function ensureTolSign_(input, defaultSign){
+    var v = input.value.trim();
+    if(!v || /^[+\-－―]/.test(v) || !/^[0-9.]/.test(v)) return;
+    input.value = defaultSign + v;
+  }
+  function addTemplateRow(base, max, min, method, remark){
+    var tbody = document.getElementById('tmplItemsBody');
+    var tr = document.createElement('tr');
+    var noTd = document.createElement('td'); noTd.className = 'tno'; tr.appendChild(noTd);
+    function cell(placeholder, value, listId){
+      var td = document.createElement('td');
+      var inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = placeholder || '';
+      if(value) inp.value = value;
+      if(listId) inp.setAttribute('list', listId);
+      td.appendChild(inp); return td;
+    }
+    var baseTd = cell('例: φ12', base), maxTd = cell('例: +0.05', max), minTd = cell('例: -0.05', min);
+    tr.appendChild(baseTd); tr.appendChild(maxTd); tr.appendChild(minTd);
+    tr.appendChild(cell('例: M', method, 'methodSuggest'));
+    tr.appendChild(cell('例: (処理前)', remark, 'remarkSuggest'));
+    var baseInput = baseTd.querySelector('input'), maxInput = maxTd.querySelector('input'), minInput = minTd.querySelector('input');
+    // 公差MAX・MINを自分で入力（編集）したら、以後は基準値を変えても自動計算で上書きしない。
+    // 両方空のまま基準値だけ入れ直している間は、何度でも自動計算をやり直す
+    var tolAuto = !(max || min);
+    maxInput.addEventListener('input', function(){ tolAuto = false; });
+    minInput.addEventListener('input', function(){ tolAuto = false; });
+    baseInput.addEventListener('blur', function(){
+      if(!tolAuto) return;
+      var fit = isoFitTolFromText_(baseInput.value);
+      if(fit){ maxInput.value = fit.max; minInput.value = fit.min; return; }
+      var tol = jisGeneralTol_(nominalTol(baseInput.value));
+      if(tol !== null){ maxInput.value = '+' + tol; minInput.value = '-' + tol; }
+      else { maxInput.value = ''; minInput.value = ''; }
+    });
+    maxInput.addEventListener('blur', function(){ ensureTolSign_(maxInput, '+'); });
+    minInput.addEventListener('blur', function(){ ensureTolSign_(minInput, '-'); });
+    var actionTd = document.createElement('td'); actionTd.className = 'tmplActions';
+    var upBtn = document.createElement('button'); upBtn.type = 'button'; upBtn.className = 'moveBtn moveUpBtn'; upBtn.textContent = '↑'; upBtn.title = '上へ移動';
+    upBtn.addEventListener('click', function(){
+      var prev = tr.previousElementSibling;
+      if(prev){ tbody.insertBefore(tr, prev); renumberTmplRows(); }
+    });
+    var downBtn = document.createElement('button'); downBtn.type = 'button'; downBtn.className = 'moveBtn moveDownBtn'; downBtn.textContent = '↓'; downBtn.title = '下へ移動';
+    downBtn.addEventListener('click', function(){
+      var next = tr.nextElementSibling;
+      if(next){ tbody.insertBefore(next, tr); renumberTmplRows(); }
+    });
+    var delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'rmBtn'; delBtn.textContent = '×'; delBtn.title = '削除';
+    delBtn.addEventListener('click', function(){ tr.remove(); renumberTmplRows(); });
+    actionTd.appendChild(upBtn); actionTd.appendChild(downBtn); actionTd.appendChild(delBtn);
+    tr.appendChild(actionTd);
+    tbody.appendChild(tr);
+    renumberTmplRows();
+  }
+  document.getElementById('toCreateZuban').addEventListener('click', function(){
+    document.getElementById('new-step-search').hidden = true;
+    document.getElementById('new-step-create').hidden = false;
+    document.getElementById('newZubanNo').disabled = false;
+    document.getElementById('newZubanNo').value = '';
+    document.getElementById('newZubanCustomer').value = '';
+    document.getElementById('newZubanName').value = '';
+    document.getElementById('newZubanMaterial').value = '';
+    document.getElementById('tmplItemsBody').innerHTML = '';
+    addTemplateRow('φ0.02 A', '—', '—', 'M');
+    addTemplateRow('', '', '', '');
+    addTemplateRow('', '', '', '');
+  });
+  // 既存の図番のテンプレートを編集する（図番ページの「✎テンプレートを編集する」から）
+  function openTemplateEditorForZuban(info){
+    go('new');
+    document.getElementById('new-step-choice').hidden = true;
+    document.getElementById('new-step-create').hidden = false;
+    document.getElementById('newZubanNo').value = info.zuban;
+    document.getElementById('newZubanNo').disabled = true;
+    document.getElementById('newZubanCustomer').value = info.customer || '';
+    document.getElementById('newZubanName').value = info.name || '';
+    document.getElementById('newZubanMaterial').value = info.material || '';
+    document.getElementById('tmplItemsBody').innerHTML = '';
+    (info.items || []).forEach(function(it){ addTemplateRow(it.base, it.max, it.min, it.method, it.remark); });
+    if(!info.items || !info.items.length) addTemplateRow('', '', '', '', '');
+  }
+  document.getElementById('editZubanTemplate').addEventListener('click', function(){
+    if(!state.zubanPage || !state.zubanPage.info){ toast('図番情報が読み込めていません'); return; }
+    openTemplateEditorForZuban(state.zubanPage.info);
+  });
+  // テンプレート編集を「図番ページの✏️テンプレートを編集する」から開いた場合は、
+  // キャンセルで新規作成の選択画面ではなく元の図番ページへ戻す
+  document.getElementById('cancelTmpl').addEventListener('click', function(){
+    if(state.zubanPage && state.zubanPage.zuban){ openZubanPage(state.zubanPage.zuban); }
+    else { go('new'); }
+  });
+  document.getElementById('addTmplRowBtn').addEventListener('click', function(){ addTemplateRow(); });
+
+  var lastFocusedInput = null;
+  document.getElementById('tmplItemsBody').addEventListener('focusin', function(e){
+    if(e.target.tagName === 'INPUT') lastFocusedInput = e.target;
+  });
+  function insertAtCursor(input, text){
+    var start = input.selectionStart, end = input.selectionEnd;
+    if(start == null){ input.value += text; }
+    else {
+      input.value = input.value.slice(0, start) + text + input.value.slice(end);
+      var pos = start + text.length;
+      input.setSelectionRange(pos, pos);
+    }
+    input.focus();
+  }
+  document.querySelectorAll('.symBtn').forEach(function(b){
+    b.addEventListener('click', function(){
+      if(!lastFocusedInput || !document.body.contains(lastFocusedInput)){
+        toast('先に基準値・公差の欄をタップしてから記号を選んでください'); return;
+      }
+      insertAtCursor(lastFocusedInput, b.dataset.sym);
+    });
+  });
+  document.getElementById('saveTmpl').addEventListener('click', function(){
+    var zuban = document.getElementById('newZubanNo').value.trim();
+    if(!zuban){ toast('図番を入力してください'); return; }
+    var items = [];
+    document.querySelectorAll('#tmplItemsBody tr').forEach(function(tr){
+      var ins = tr.querySelectorAll('input[type=text]');
+      items.push({ base: ins[0].value, max: ins[1].value, min: ins[2].value, method: ins[3].value, remark: ins[4].value });
+    });
+    run('saveZubanTemplate', {
+      zuban: zuban, customer: document.getElementById('newZubanCustomer').value, name: document.getElementById('newZubanName').value,
+      material: document.getElementById('newZubanMaterial').value, items: items
+    }).then(function(){
+      toast('図番 '+zuban+' のテンプレートを保存しました。');
+      state.returnToInspect = false; openZubanPage(zuban);
+    }).catch(errToast);
+  });
+
+  /* ---------- 図番ページ ---------- */
+  var SHIPPING_SELECT_IDS = ['検査記録の添付','ミルシート','トレー梱包の種類','NG・限度見本の有無','カット品','テストピース','外観ランク'];
+  var tray = document.getElementById('sp_トレー梱包の種類');
+  ['無','G-050-3','5-912052-2(25個)','E-080-1','MT10-4','MT8-2'].forEach(function(v){
+    var o = document.createElement('option'); o.value = v; o.textContent = v; tray.appendChild(o);
+  });
+  function wireConditionalReveal(selectId, wrapId, showValue){
+    var sel = document.getElementById(selectId), wrap = document.getElementById(wrapId);
+    function sync(){ wrap.hidden = (sel.value !== showValue); }
+    sel.addEventListener('change', sync); sync();
+  }
+  wireConditionalReveal('gaugeHas', 'gaugeTypeWrap', '有');
+  wireConditionalReveal('keyenceHas', 'keyenceProgWrap', '有');
+
+  // 出荷仕様は誤操作防止のため、「編集する」を押すまで変更できない
+  var SHIPPING_FIELD_IDS = ['sp_検査記録の添付','sp_ミルシート','sp_トレー梱包の種類','sp_NG・限度見本の有無','sp_カット品','sp_テストピース','gaugeHas','sp_借用ゲージの種類','keyenceHas','sp_キーエンスプログラム名','sp_外観ランク'];
+  function setShippingEditable_(editable){
+    SHIPPING_FIELD_IDS.forEach(function(id){ var el = document.getElementById(id); if(el) el.disabled = !editable; });
+    document.getElementById('editShipping').style.display = editable ? 'none' : '';
+    document.getElementById('cancelShipping').style.display = editable ? '' : 'none';
+    document.getElementById('saveShipping').style.display = editable ? '' : 'none';
+  }
+  document.getElementById('editShipping').addEventListener('click', function(){ setShippingEditable_(true); });
+  document.getElementById('cancelShipping').addEventListener('click', function(){
+    if(state.zubanPage) openZubanPage(state.zubanPage.zuban);
+  });
+
+  function openZubanPage(zuban){
+    go('zuban');
+    document.getElementById('zubanTitle').textContent = zuban;
+    document.getElementById('zubanItemCount').textContent = '読み込み中…';
+    document.getElementById('qualityLogList').innerHTML = '<div class="rempty">読み込み中…</div>';
+    document.getElementById('zubanPastRecords').innerHTML = '<div class="rempty">読み込み中…</div>';
+    run('getZubanPage', zuban).then(function(res){
+      if(!res.found){
+        document.getElementById('zubanSub').textContent = 'この図番のテンプレートはまだありません。新規作成から登録してください';
+        document.getElementById('zubanItemCount').textContent = '未登録';
+        return;
+      }
+      state.zubanPage = { zuban: zuban, info: res.info };
+      document.getElementById('zubanSub').textContent = (res.info.customer || '得意先未設定') + ' / ' + (res.info.name || '品名未設定') + '　─　検査を始める前に出荷仕様・品質記録を確認してください';
+      document.getElementById('zubanItemCount').textContent = '全' + res.info.items.length + '項目（抜取数はロット数に応じて検査時に自動計算）';
+
+      var sp = res.info.shipping || {};
+      SHIPPING_SELECT_IDS.forEach(function(k){ var el = document.getElementById('sp_'+k); if(el && sp[k]) el.value = sp[k]; });
+      document.getElementById('gaugeHas').value = sp['借用ゲージ等の有無'] || '無';
+      document.getElementById('sp_借用ゲージの種類').value = sp['借用ゲージの種類'] || '';
+      document.getElementById('keyenceHas').value = sp['キーエンス測定の有無'] || '無';
+      document.getElementById('sp_キーエンスプログラム名').value = sp['キーエンスプログラム名'] || '';
+      document.getElementById('gaugeTypeWrap').hidden = (document.getElementById('gaugeHas').value !== '有');
+      document.getElementById('keyenceProgWrap').hidden = (document.getElementById('keyenceHas').value !== '有');
+      setShippingEditable_(false);
+      document.getElementById('qlRankFixed').textContent = sp['外観ランク'] || '-';
+
+      var qlBox = document.getElementById('qualityLogList'); qlBox.innerHTML = '';
+      if(!res.info.qualityLog.length){ qlBox.innerHTML = '<div class="rempty">まだ記録がありません</div>'; }
+      res.info.qualityLog.forEach(function(q){
+        var row = document.createElement('div'); row.className = 'rrow'; row.style.gridTemplateColumns = '70px 1fr 60px 32px';
+        row.innerHTML = '<div class="date"></div><div><div class="zu" style="font-size:12.5px"></div><div class="meta"></div></div><div></div><button type="button" class="rmBtn qlEditBtn" title="編集する">✏️</button>';
+        row.querySelector('.date').textContent = q['タイムスタンプ'].slice(5,10).replace('-', '/');
+        row.querySelector('.zu').textContent = q['部署'] || '';
+        row.querySelector('.meta').textContent = q['内容'] + '（' + q['投稿者名'] + '）';
+        var shared = (q['共有フラグ'] === 'true' || q['共有フラグ'] === '1' || q['共有フラグ'] === true);
+        if(shared){ row.children[2].innerHTML = '<span class="pill waiting">共有</span>'; }
+        row.querySelector('.qlEditBtn').addEventListener('click', function(){ openQlForm_(q['投稿ID'], q['内容'], shared); });
+        qlBox.appendChild(row);
+      });
+
+      var pastBox = document.getElementById('zubanPastRecords'); pastBox.innerHTML = '';
+      if(!res.pastRecords.length){ pastBox.innerHTML = '<div class="rempty">承認済みの記録はまだありません</div>'; }
+      res.pastRecords.forEach(function(r){
+        pastBox.appendChild(rrow_('📄 ' + r.date + ' 検査記録', metaLine_({ customer: r.customer, mfgNo: r.mfgNo, inspector: r.inspector, approver: r.approver }), '承認済み', r.date, function(){
+          openAnyRecord(r.recordId);
+        }));
+      });
+    }).catch(errToast);
+  }
+  document.getElementById('saveShipping').addEventListener('click', function(){
+    if(!state.zubanPage){ toast('図番が選ばれていません'); return; }
+    var data = {};
+    SHIPPING_SELECT_IDS.forEach(function(k){ data[k] = document.getElementById('sp_'+k).value; });
+    data['借用ゲージ等の有無'] = document.getElementById('gaugeHas').value;
+    data['借用ゲージの種類'] = document.getElementById('sp_借用ゲージの種類').value;
+    data['キーエンス測定の有無'] = document.getElementById('keyenceHas').value;
+    data['キーエンスプログラム名'] = document.getElementById('sp_キーエンスプログラム名').value;
+    run('saveShippingSpec', state.zubanPage.zuban, data).then(function(){
+      toast('出荷仕様を保存しました');
+      setShippingEditable_(false);
+      document.getElementById('qlRankFixed').textContent = data['外観ランク'] || '-';
+    }).catch(errToast);
+  });
+
+  var qlForm = document.getElementById('qualityLogForm');
+  // 新規追加・既存編集の両方をこのフォーム1つで扱う（state.editingQlIdがあれば編集、無ければ新規）
+  function openQlForm_(id, content, shared){
+    state.editingQlId = id || null;
+    document.getElementById('qlContent').value = content || '';
+    document.getElementById('qlShare').checked = !!shared;
+    document.getElementById('qlFormTitle').textContent = id ? '記録を編集' : '記録を追加';
+    qlForm.hidden = false;
+  }
+  function closeQlForm_(){
+    state.editingQlId = null;
+    qlForm.hidden = true;
+  }
+  document.getElementById('addQualityLog').addEventListener('click', function(){
+    if(!qlForm.hidden && !state.editingQlId){ closeQlForm_(); return; }
+    openQlForm_(null, '', false);
+  });
+  document.getElementById('qlCancel').addEventListener('click', closeQlForm_);
+  document.getElementById('saveQualityLog').addEventListener('click', function(){
+    if(!state.zubanPage){ toast('図番が選ばれていません'); return; }
+    var data = { '内容': document.getElementById('qlContent').value || '（内容未入力）', '共有フラグ': document.getElementById('qlShare').checked };
+    var isEdit = !!state.editingQlId;
+    var p = isEdit ? run('updateQualityLog', state.editingQlId, data) : run('addQualityLog', state.zubanPage.zuban, data);
+    p.then(function(){
+      closeQlForm_();
+      toast(isEdit ? '記録を更新しました。' : (data['共有フラグ'] ? '記録を保存しました。西軽精機ナレッジにも共有されます。' : '記録を保存しました（自部署のみ）。'));
+      openZubanPage(state.zubanPage.zuban);
+    }).catch(errToast);
+  });
+
+  /* ---------- 検査入力 ---------- */
+  // 抜取数はロット数から決まる（図番では決まらない）。ロット数を入れると自動で表示するが、
+  // 抜取数欄を直接触ったら以後は自動で上書きしない
+  var LOT_SAMPLE_TABLE = [[20,2],[50,3],[100,5],[300,10]];
+  var DEFAULT_SAMPLE_COUNT = 2;
+  function sampleCountForLot_(lotCount){
+    var n = parseInt(lotCount, 10);
+    if(isNaN(n) || n <= 0) return null;
+    for(var i=0; i<LOT_SAMPLE_TABLE.length; i++){ if(n <= LOT_SAMPLE_TABLE[i][0]) return LOT_SAMPLE_TABLE[i][1]; }
+    return 13;
+  }
+  var sampleCountTouched = false;
+  function collectCurrentMeasurements_(){
+    var map = {};
+    var info = state.inspect && state.inspect.info;
+    if(!info) return map;
+    document.querySelectorAll('#itemsTable tbody tr').forEach(function(tr, rowIdx){
+      var item = info.items[rowIdx];
+      if(!item) return;
+      tr.querySelectorAll('td.meas-cell input.meas').forEach(function(input){
+        if(input.value) map[item.no+'_'+input.dataset.sample] = input.value;
+      });
+    });
+    return map;
+  }
+  function applySampleCount_(count, readOnly){
+    if(!state.inspect) return;
+    var prefill = collectCurrentMeasurements_();
+    document.getElementById('in_sampleCount').value = count;
+    buildItemsTable(state.inspect.info.items, count, prefill, !!readOnly);
+  }
+  document.getElementById('in_sampleCount').addEventListener('input', function(){
+    sampleCountTouched = true;
+    var n = parseInt(this.value, 10);
+    if(!isNaN(n) && n > 0 && state.inspect){
+      var prefill = collectCurrentMeasurements_();
+      buildItemsTable(state.inspect.info.items, n, prefill, false);
+    }
+  });
+  document.getElementById('in_lotCount').addEventListener('input', function(){
+    if(sampleCountTouched) return;
+    var n = sampleCountForLot_(document.getElementById('in_lotCount').value);
+    if(n !== null) applySampleCount_(n);
+  });
+
+  function openInspect(zuban, info){
+    go('inspect');
+    state.inspect = { zuban: zuban, info: info, recordId: null, dirty: true };
+    sampleCountTouched = false;
+    document.getElementById('inspectTitle').textContent = zuban;
+    document.getElementById('inspectSub').textContent = (info.customer || '') + ' / 新規作成';
+    document.getElementById('in_mfgNo').value = state.pendingMfgNo || '';
+    state.pendingMfgNo = null;
+    document.getElementById('in_date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('in_lotCount').value = '';
+    document.getElementById('in_sampleCount').value = DEFAULT_SAMPLE_COUNT;
+    document.getElementById('in_lotNo').value = '';
+    document.getElementById('in_material').value = (info.material || '') + '(L/N.)';
+    document.getElementById('in_process').value = '';
+    document.getElementById('in_orderNo').value = '';
+    document.getElementById('in_note').value = '';
+    document.getElementById('viewPdfBtn').hidden = true;
+    defaultInspector_();
+    setInspectMode_('new', null);
+    buildItemsTable(info.items, DEFAULT_SAMPLE_COUNT);
+  }
+  // 図番ページから「確認して検査を始める」：既に同じ図番を入力中ならそれを壊さず戻るだけ、
+  // そうでなければ新規にテンプレートから組み立てる（実測値入力中に図番ページを見に来ても安全）
+  function goToInspectFromZubanPage(){
+    var zp = state.zubanPage;
+    if(!zp || !zp.info){ toast('図番情報が読み込めていません'); return; }
+    // 「図番ページを見る」から来たときだけ、入力中の検査セッションにそのまま戻る。
+    // それ以外（QR・図番検索・新規図番作成からの遷移）は毎回必ず新規の検査として組み立てる。
+    if(state.returnToInspect && state.inspect && state.inspect.zuban === zp.zuban){
+      state.returnToInspect = false;
+      go('inspect');
+    } else {
+      openInspect(zp.zuban, zp.info);
+    }
+  }
+  document.getElementById('startInspectFromZuban').addEventListener('click', goToInspectFromZubanPage);
+  // 検査入力の途中で図番ページを確認したいとき（入力中の内容は消えない）
+  document.getElementById('peekZubanPage').addEventListener('click', function(){
+    if(!state.inspect){ toast('図番が選ばれていません'); return; }
+    state.returnToInspect = true;
+    openZubanPage(state.inspect.zuban);
+  });
+
+  // 既存の記録（下書き・差し戻し・承認待ち・承認済み）を検査入力画面で開く
+  // 図番の最新テンプレート（サーバーから渡されるtemplate）を使って全項目を組み立て、
+  // 実際に入力済みの実測値だけをその上に重ねる（未入力の項目も含めて必ず全項目を表示するため）
+  function recordToTemplate_(record, items, template){
+    var tmplItems;
+    if(template && template.length){
+      tmplItems = template.map(function(it){ return { no: it.no, base: it.base, max: it.max, min: it.min, method: it.method, remark: it.remark }; });
+    } else {
+      var seen = {}; tmplItems = [];
+      items.forEach(function(it){
+        if(!seen[it['№']]){ seen[it['№']] = true; tmplItems.push({ no: it['№'], base: it['基準値'], max: it['公差MAX'], min: it['公差MIN'], method: it['測定方法'] }); }
+      });
+      tmplItems.sort(function(a,b){ return Number(a.no) - Number(b.no); });
+    }
+    var sampleCount = Number(record['抜取数']) || 0;
+    items.forEach(function(it){ sampleCount = Math.max(sampleCount, Number(it['サンプルNo']) || 0); });
+    if(!sampleCount) sampleCount = 15;
+    var prefill = {};
+    items.forEach(function(it){ if(it['実測値']) prefill[it['№']+'_'+it['サンプルNo']] = it['実測値']; });
+    return { items: tmplItems, sampleCount: sampleCount, prefill: prefill, customer: record['得意先'] };
+  }
+  function openInspectForRecord(recordId){
+    run('getRecord', recordId).then(function(res){
+      var r = res.record;
+      var mode = (r['状態'] === '承認済み') ? 'view' : (r['状態'] === '承認待ち') ? 'review' : 'edit';
+      var tmpl = recordToTemplate_(r, res.items, res.template);
+      go('inspect');
+      state.inspect = { zuban: r['図番'], info: { zuban: r['図番'], customer: tmpl.customer, items: tmpl.items, defaultSampleCount: tmpl.sampleCount }, recordId: recordId, dirty: true };
+      sampleCountTouched = false;
+      document.getElementById('inspectTitle').textContent = r['図番'];
+      var subLabel = { view: '閲覧', review: '承認の確認（依頼者: ' + r['検査員名'] + '）', edit: (r['状態'] === '差し戻し' ? '差し戻し・再編集' : '下書きの続き') }[mode];
+      document.getElementById('inspectSub').textContent = (tmpl.customer || '') + ' / ' + subLabel;
+      document.getElementById('in_mfgNo').value = r['製造番号'];
+      document.getElementById('in_date').value = r['検査日'];
+      if(r['検査員名']) document.getElementById('in_inspector').value = r['検査員名'];
+      document.getElementById('in_lotCount').value = r['ロット数'];
+      document.getElementById('in_sampleCount').value = r['抜取数'];
+      document.getElementById('in_lotNo').value = r['ロットNo'];
+      document.getElementById('in_material').value = r['材質/ロットNo'];
+      document.getElementById('in_process').value = r['処理'];
+      document.getElementById('in_orderNo').value = r['受注・客先番号'];
+      document.getElementById('in_note').value = r['備考'];
+      var pdfBtn = document.getElementById('viewPdfBtn');
+      if(r['PDFファイルID']){ pdfBtn.hidden = false; pdfBtn.href = 'https://drive.google.com/file/d/' + r['PDFファイルID'] + '/view'; }
+      else { pdfBtn.hidden = true; }
+      buildItemsTable(tmpl.items, tmpl.sampleCount, tmpl.prefill, mode !== 'edit');
+      setInspectMode_(mode, r);
+    }).catch(errToast);
+  }
+  // 記録一覧・最近の記録・過去の検査記録のどこから開いても、検査入力画面の中で状態に応じた表示に振り分ける
+  function openAnyRecord(recordId){ openInspectForRecord(recordId); }
+  function setInspectMode_(mode, record){
+    var editable = (mode === 'edit' || mode === 'new');
+    state.inspectEditable = editable;
+    document.getElementById('autoSaveIndicator').textContent = '';
+    var canReview = (mode === 'review' && isApprover_());
+    ['in_mfgNo','in_date','in_inspector','in_lotCount','in_sampleCount','in_lotNo','in_material','in_process','in_orderNo','in_note'].forEach(function(id){
+      document.getElementById(id).disabled = !editable;
+    });
+    var canReopen = (mode === 'view' && isApprover_());
+    document.getElementById('editActions').style.display = editable ? 'flex' : 'none';
+    document.getElementById('reviewActions').style.display = canReview ? 'flex' : 'none';
+    document.getElementById('reopenActions').style.display = canReopen ? 'flex' : 'none';
+    document.getElementById('saveDraftBtn').style.display = editable ? '' : 'none';
+    document.getElementById('sendApproval').textContent = (mode === 'edit' && record && record['状態'] === '差し戻し') ? '修正して再送信' : '承認依頼を送信';
+    var note = document.getElementById('inspectModeNote');
+    if(mode === 'view'){
+      note.hidden = false;
+      note.textContent = '閲覧のみです（承認済み）。承認者: ' + (record['承認者名'] || '-') + '　承認日時: ' + (record['承認日時'] || '-')
+        + (canReopen ? '　※承認後に誤りが見つかった場合のみ、下の「承認を取り消して差し戻す」から検査員に差し戻せます。' : '');
+    } else if(mode === 'review' && canReview){
+      note.hidden = false;
+      note.textContent = '承認待ちです（読み取り専用）。依頼先: ' + (record['依頼先'] || '-') + '。内容を確認してから下で承認・差し戻しを選んでください。';
+    } else if(mode === 'review'){
+      note.hidden = false;
+      note.textContent = '承認待ちです（閲覧のみ）。依頼先: ' + (record['依頼先'] || '-') + '。承認・差し戻しは承認者のみ操作できます。';
+    } else if(mode === 'edit' && record && record['状態'] === '差し戻し'){
+      note.hidden = false;
+      note.textContent = '差し戻されました。理由: ' + (record['差し戻しコメント'] || '(コメントなし)');
+    } else {
+      note.hidden = true;
+    }
+  }
+
+  /* 度分表記・10進法・記号混じりの値を数値に変換する
+     例: 45°30′→45.5 / +30′→0.5 / φ10H7→10（記号混じりは最初の数値を拾う） / 変換不可はnull */
+  function parseTol(str){
+    if(str === null || str === undefined) return null;
+    var s = String(str).trim();
+    if(s === '') return null;
+    var sign = 1, body = s;
+    if(body.charAt(0) === '+'){ body = body.slice(1).trim(); }
+    else if(body.charAt(0) === '-'){ sign = -1; body = body.slice(1).trim(); }
+    var degMin = body.match(/^(\d+\.?\d*)°\s*(\d+\.?\d*)['′]$/);
+    if(degMin) return sign * (parseFloat(degMin[1]) + parseFloat(degMin[2]) / 60);
+    var minOnly = body.match(/^(\d+\.?\d*)['′]$/);
+    if(minOnly) return sign * (parseFloat(minOnly[1]) / 60);
+    var degOnly = body.match(/^(\d+\.?\d*)°$/);
+    if(degOnly) return sign * parseFloat(degOnly[1]);
+    var num = parseFloat(body);
+    if(!isNaN(num)) return sign * num;
+    var anyNum = body.match(/(\d+\.?\d*)/);
+    if(anyNum) return sign * parseFloat(anyNum[1]);
+    return null;
+  }
+  // 基準値（例: 2-φ5）は×・-の右側（寸法の本体）を優先して数値化する
+  function nominalTol(str){
+    var s = String(str || '').trim();
+    if(/[×\-－―]/.test(s)) s = s.split(/[×\-－―]/).pop();
+    return parseTol(s);
+  }
+  // カッコ書きは参考値（判定対象外）
+  function isReferenceValue(s){
+    return (s.startsWith('(') && s.endsWith(')')) || (s.startsWith('（') && s.endsWith('）'));
+  }
+
+  // 測定方法がゲージ類（通止で判定するもの）なら、未入力のサンプル1・2に「通」「止」を
+  // 初期値として入れる（編集は可能。既に値があればそちらを優先し上書きしない）
+  var GAUGE_METHODS = ['P.G', 'B.G'];
+  function normMethod_(m){ return String(m || '').trim().replace(/\.+$/, ''); }
+  // 円筒度・位置度・対称度・全振れの記号は字形が小さく見づらいので、表示専用のセル
+  // （入力欄ではないのでHTMLを使える）では一回り大きく表示する
+  function escHtml_(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function bigSymHtml_(s){
+    return escHtml_(s)
+      .replace(/[⌭⌖⌯⌰]/g, '<span class="symBig">$&</span>')
+      .replace(/[⏤⏥]/g, '<span class="symFont">$&</span>');
+  }
+  function buildItemsTable(items, sampleCount, prefill, readOnly){
+    document.getElementById('inspectItemsHead').textContent = '検査項目（全' + items.length + '項目・抜取' + sampleCount + '個）';
+    var headRow = document.getElementById('itemsHeadRow'); headRow.innerHTML = '';
+    ['№','基準値','公差MAX','公差MIN','測定方法'].forEach(function(t){ var th = document.createElement('th'); th.textContent = t; headRow.appendChild(th); });
+    for(var s=1; s<=sampleCount; s++){ var sh = document.createElement('th'); sh.textContent = s; headRow.appendChild(sh); }
+
+    var body = document.getElementById('itemsBody'); body.innerHTML = '';
+    items.forEach(function(item){
+      var tr = document.createElement('tr');
+      var base = nominalTol(item.base), max = parseTol(item.max), min = parseTol(item.min);
+      if(base !== null && max !== null && min !== null){ tr.dataset.base = base; tr.dataset.max = max; tr.dataset.min = min; }
+      var baseDisplay = item.base + (item.remark ? '　' + item.remark : '');
+      var noTd = document.createElement('td'); noTd.className = 'num'; noTd.textContent = item.no; tr.appendChild(noTd);
+      [baseDisplay, item.max, item.min].forEach(function(v){
+        var td = document.createElement('td'); td.className = 'num'; td.innerHTML = bigSymHtml_(v); tr.appendChild(td);
+      });
+      var mTd = document.createElement('td'); mTd.className = 'num'; mTd.textContent = item.method; tr.appendChild(mTd);
+      var isGauge = !readOnly && GAUGE_METHODS.indexOf(normMethod_(item.method)) >= 0;
+      for(var s=1; s<=sampleCount; s++){
+        var td = document.createElement('td'); td.className = 'meas-cell';
+        var input = document.createElement('input'); input.className = 'meas'; input.placeholder = '—'; input.dataset.sample = s;
+        var pv = prefill && prefill[item.no+'_'+s];
+        if(pv){ input.value = pv; }
+        else if(isGauge && s === 1){ input.value = '通'; }
+        else if(isGauge && s === 2){ input.value = '止'; }
+        if(readOnly) input.disabled = true;
+        td.appendChild(input); tr.appendChild(td);
+      }
+      body.appendChild(tr);
+    });
+    judge();
+  }
+  // PCのキーボード操作：Enter/↓で下のセルへ、↑で上のセルへ、←→は入力欄の端にカーソルが
+  // あるときだけ隣のセルへ（文中でのカーソル移動を邪魔しないようにする）
+  document.getElementById('itemsBody').addEventListener('keydown', function(e){
+    if(!e.target.classList.contains('meas')) return;
+    var key = e.key;
+    var td = e.target.closest('td.meas-cell');
+    var tr = td.parentElement;
+    var cellIndex = Array.prototype.indexOf.call(tr.children, td);
+    var targetTr = null, targetTd = null;
+    if(key === 'Enter' || key === 'ArrowDown'){ targetTr = tr.nextElementSibling; }
+    else if(key === 'ArrowUp'){ targetTr = tr.previousElementSibling; }
+    else if(key === 'ArrowLeft'){
+      if(e.target.selectionStart !== 0) return;
+      targetTd = td.previousElementSibling;
+    } else if(key === 'ArrowRight'){
+      if(e.target.selectionEnd !== e.target.value.length) return;
+      targetTd = td.nextElementSibling;
+    } else { return; }
+    if(targetTr) targetTd = targetTr.children[cellIndex];
+    if(targetTd && targetTd.classList.contains('meas-cell')){
+      var next = targetTd.querySelector('input.meas');
+      if(next){ e.preventDefault(); next.focus(); next.select(); }
+    }
+  });
+  // itemsBody自体は組み直しのたびに中身だけ入れ替わる（要素そのものは同じ）ので、
+  // リスナーはここで1回だけ登録する（buildItemsTableの中で毎回付けると、呼ぶたびに
+  // 重複して増えてしまう）
+  document.getElementById('itemsBody').addEventListener('input', function(e){ if(e.target.classList.contains('meas')) judge(); });
+
+  function judge(){
+    var rows = document.querySelectorAll('#itemsTable tbody tr');
+    var ngCount = 0, filled = 0;
+    var EPS = 1e-7;
+    rows.forEach(function(tr){
+      var base = parseFloat(tr.dataset.base);
+      var hasBase = !isNaN(base);
+      var max = parseFloat(tr.dataset.max), min = parseFloat(tr.dataset.min);
+      tr.querySelectorAll('td.meas-cell').forEach(function(td){
+        td.classList.remove('pass','ng');
+        if(!hasBase) return;
+        var s = td.querySelector('input.meas').value.trim();
+        if(!s || isReferenceValue(s)) return;
+        var v = parseTol(s);
+        if(v === null) return;
+        filled++;
+        var hi = base + Math.max(max,min), lo = base + Math.min(max,min);
+        if(v >= lo - EPS && v <= hi + EPS){ td.classList.add('pass'); }
+        else { td.classList.add('ng'); ngCount++; }
+      });
+    });
+    var bar = document.getElementById('judgeBar'), txt = document.getElementById('judgeText');
+    bar.classList.remove('pass','ng');
+    if(ngCount > 0){ bar.classList.add('ng'); txt.textContent = ngCount+'件が公差外です（入力済み'+filled+'件）'; }
+    else { bar.classList.add('pass'); txt.textContent = filled+'件入力済み・すべて公差内です'; }
+  }
+
+  function collectInspectPayload_(){
+    var info = state.inspect.info;
+    var items = [];
+    document.querySelectorAll('#itemsTable tbody tr').forEach(function(tr, rowIdx){
+      tr.querySelectorAll('td.meas-cell input.meas').forEach(function(input){
+        if(!input.value) return;
+        items.push({
+          no: info.items[rowIdx].no, base: info.items[rowIdx].base, max: info.items[rowIdx].max, min: info.items[rowIdx].min,
+          method: info.items[rowIdx].method, sample: input.dataset.sample, value: input.value,
+          judge: input.closest('td').classList.contains('ng') ? '不合格' : (input.closest('td').classList.contains('pass') ? '合格' : '')
+        });
+      });
+    });
+    return {
+      recordId: state.inspect.recordId, zuban: info.zuban, customer: info.customer,
+      inspector: document.getElementById('in_inspector').value,
+      mfgNo: document.getElementById('in_mfgNo').value, date: document.getElementById('in_date').value,
+      lotCount: document.getElementById('in_lotCount').value, sampleCount: document.getElementById('in_sampleCount').value,
+      lotNo: document.getElementById('in_lotNo').value,
+      material: document.getElementById('in_material').value, process: document.getElementById('in_process').value,
+      orderNo: document.getElementById('in_orderNo').value, note: document.getElementById('in_note').value, items: items
+    };
+  }
+  document.getElementById('saveDraftBtn').addEventListener('click', function(){
+    if(!state.inspect){ go('home'); return; }
+    var payload = collectInspectPayload_();
+    run('saveInspectionRecord', payload, '記入中').then(function(res){
+      state.inspect.recordId = res.recordId;
+      toast('下書きを保存しました。');
+      go('home');
+    }).catch(errToast);
+  });
+  // 数分おきの自動保存。通信中オーバーレイは手動操作のときだけで良いので、busyOverlayを
+  // 出さない静かな呼び出し（runSilent）を使う。画面を離れていたり閲覧・承認確認モードの
+  // 間は何もしない。失敗しても黙って次回に任せる（手動の下書き保存ボタンは別にある）
+  var AUTOSAVE_INTERVAL_MS = 3 * 60 * 1000;
+  function autoSaveTick(){
+    if(!state.inspect || !state.inspectEditable) return;
+    if(document.getElementById('view-inspect').hidden) return;
+    runSilent('saveInspectionRecord', collectInspectPayload_(), '記入中').then(function(res){
+      state.inspect.recordId = res.recordId;
+      document.getElementById('autoSaveIndicator').textContent = '自動保存済み ' + new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+    }).catch(function(){});
+  }
+  setInterval(autoSaveTick, AUTOSAVE_INTERVAL_MS);
+  document.getElementById('sendApproval').addEventListener('click', function(){
+    var payload = collectInspectPayload_();
+    payload.approverName = document.getElementById('approverSelect').value;
+    run('saveInspectionRecord', payload, '承認待ち').then(function(){
+      state.inspect.dirty = false;
+      toast('承認依頼を送信しました。');
+      go('home');
+    }).catch(errToast);
+  });
+
+  /* ---------- 承認待ち ---------- */
+  function loadApproveList(){
+    var box = document.getElementById('approveListBody');
+    box.innerHTML = '<div class="rempty">読み込み中…</div>';
+    run('getApprovalList').then(function(list){
+      document.getElementById('approveCount').textContent = list.length + '件';
+      box.innerHTML = '';
+      if(!list.length){ box.innerHTML = '<div class="rempty">承認待ちの記録はありません</div>'; return; }
+      list.forEach(function(r){
+        box.appendChild(rrow_(r.zuban, metaLine_(r) + '　/　' + r.date + ' 提出', '承認待ち', r.date, function(){ openInspectForRecord(r.recordId); }));
+      });
+    }).catch(errToast);
+  }
+  // 承認待ちの記録を検査入力画面（読み取り専用）で開き、そこで承認・差し戻しする
+  document.getElementById('reviewApproveBtn').addEventListener('click', function(){
+    run('approveRecord', state.inspect.recordId).then(function(res){
+      toast(res.pdfWarning ? ('承認しました。' + res.pdfWarning) : '承認し、PDFを作成しました。');
+      go('approve');
+    }).catch(errToast);
+  });
+  document.getElementById('reviewReturnBtn').addEventListener('click', function(){
+    askText('差し戻し理由（任意）', '例: 寸法が公差外のため再測定をお願いします').then(function(comment){
+      if(comment === null) return;
+      run('returnRecord', state.inspect.recordId, comment).then(function(){
+        toast('差し戻しました。');
+        go('approve');
+      }).catch(errToast);
+    });
+  });
+  // 承認済みの記録を例外的に差し戻す（本来あってはならない操作のため、承認者のみ・
+  // 理由入力つきの専用関数reopenApprovedRecordを使う。差し戻し後は検査員が修正し、
+  // 改めて承認依頼→承認のフローを通す必要がある）
+  document.getElementById('reopenBtn').addEventListener('click', function(){
+    askText('承認を取り消して差し戻す理由', '例: 製造番号の入力ミスがあったため').then(function(comment){
+      if(comment === null) return;
+      run('reopenApprovedRecord', state.inspect.recordId, comment).then(function(){
+        toast('承認を取り消し、検査員に差し戻しました。');
+        go('home');
+      }).catch(errToast);
+    });
+  });
+
+  /* ---------- 検索・閲覧 ---------- */
+  document.getElementById('searchBtn').addEventListener('click', function(){
+    var filter = {
+      zuban: document.getElementById('sr_zuban').value, mfgNo: document.getElementById('sr_mfgNo').value,
+      inspector: document.getElementById('sr_inspector').value, state: document.getElementById('sr_state').value
+    };
+    run('searchRecords', filter).then(function(list){
+      document.getElementById('searchResultCount').textContent = '結果 ' + list.length + '件';
+      var box = document.getElementById('searchResultList'); box.innerHTML = '';
+      if(!list.length){ box.innerHTML = '<div class="rempty">該当する記録がありません</div>'; return; }
+      list.forEach(function(r){
+        box.appendChild(rrow_('📄 ' + r.zuban, metaLine_(r), r.state, r.date, function(){
+          openAnyRecord(r.recordId);
+        }));
+      });
+    }).catch(errToast);
+  });
+
+  /* ---------- サインイン後の初期表示（handleCredentialResponseから呼ばれる） ---------- */
+  window.startApp = function(){
+    // 検索・閲覧の図番欄は一部一致でも候補が出るように、図番マスタの図番一覧を先読みしておく
+    run('listZubanNames').then(function(names){
+      allZubanNames = names;
+      var dl = document.getElementById('zubanSearchSuggest');
+      dl.innerHTML = '';
+      names.forEach(function(n){ var o = document.createElement('option'); o.value = n; dl.appendChild(o); });
+    }).catch(function(){});
+    // 検査員・承認依頼先の選択肢も先読み（組織図マスタ・役割シートから。新しく品質保証課に
+    // 入った人がいてもコードを直さずに選択肢に出るようにするため）
+    run('listPeopleOptions').then(function(opt){
+      var fill = function(selId, names){
+        var sel = document.getElementById(selId);
+        names.forEach(function(n){ var o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+      };
+      fill('in_inspector', opt.inspectors);
+      fill('sr_inspector', opt.inspectors);
+      fill('approverSelect', opt.approvers);
+    }).catch(function(){});
+    go('home');
+  };
+
+  // サインイン失敗時（ドメイン外のアカウント等）、GAS側からエラーが返ってきたら
+  // サインイン画面に理由を表示して戻す
+  window.addEventListener('unhandledrejection', function(e){
+    if(document.getElementById('appShell').hidden) return; // サインイン前は何もしない
+  });
+})();
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
+</script>
 </body>
 </html>
