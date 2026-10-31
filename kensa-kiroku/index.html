@@ -122,7 +122,8 @@
           <div class="card-head"><h2>新しい図番のテンプレートを作成</h2></div>
           <div style="padding:16px" class="formGrid">
             <label class="fl">図番<input type="text" id="newZubanNo" placeholder="例: B7523-ZH310-A"></label>
-            <label class="fl">得意先<input type="text" id="newZubanCustomer" placeholder="例: 丸辰製作所"></label>
+            <label class="fl">得意先<input type="text" id="newZubanCustomer" list="customerSuggest" placeholder="例: 丸辰製作所"></label>
+            <datalist id="customerSuggest"></datalist>
             <label class="fl">品名<input type="text" id="newZubanName" placeholder="例: シャフト"></label>
             <label class="fl">材質<input type="text" id="newZubanMaterial" placeholder="例: SUS303"></label>
           </div>
@@ -466,6 +467,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     getRecord: { method:'GET', fields:['recordId'] },
     searchRecords: { method:'GET', fields:['filter'] },
     listZubanNames: { method:'GET', fields:[] },
+    listCustomerNames: { method:'GET', fields:[] },
     listPeopleOptions: { method:'GET', fields:[] },
     saveShippingSpec: { method:'POST', fields:['zuban','data'] },
     addQualityLog: { method:'POST', fields:['zuban','data'] },
@@ -1537,6 +1539,13 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     run('listZubanNames').then(function(names){
       allZubanNames = names;
       var dl = document.getElementById('zubanSearchSuggest');
+      dl.innerHTML = '';
+      names.forEach(function(n){ var o = document.createElement('option'); o.value = n; dl.appendChild(o); });
+    }).catch(function(){});
+    // 得意先欄も同様に先読み（表記ゆれで同じ得意先の別名フォルダが増えないよう、
+    // 既存の得意先名を入力候補として出す）
+    run('listCustomerNames').then(function(names){
+      var dl = document.getElementById('customerSuggest');
       dl.innerHTML = '';
       names.forEach(function(n){ var o = document.createElement('option'); o.value = n; dl.appendChild(o); });
     }).catch(function(){});
