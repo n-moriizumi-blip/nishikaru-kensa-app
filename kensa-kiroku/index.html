@@ -419,6 +419,14 @@
   </div>
 </div>
 
+<div class="modalOverlay" id="folderModalOverlay" hidden>
+  <div class="modalBox">
+    <div class="modalTitle" id="folderModalTitle"></div>
+    <div class="note" id="folderModalNote" style="margin-bottom:10px"></div>
+    <div id="folderModalChoices" style="display:flex; flex-direction:column; gap:8px"></div>
+  </div>
+</div>
+
 <script>
 // 検査記録ポータル 本番GASデプロイURL（JSON API）
 var GAS_URL = 'https://script.google.com/a/macros/nishikaru.co.jp/s/AKfycbw1G-JzrDNjs1nzm67WDZFis2252Ir2g4Q8QNLHIpsIN1Ell-1ZWnDu_e8h_zEoALmn/exec';
@@ -468,13 +476,15 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     searchRecords: { method:'GET', fields:['filter'] },
     listZubanNames: { method:'GET', fields:[] },
     listCustomerNames: { method:'GET', fields:[] },
+    checkCustomerFolder: { method:'GET', fields:['zuban'] },
+    checkZubanFolder: { method:'GET', fields:['customerFolderName','zuban'] },
     listPeopleOptions: { method:'GET', fields:[] },
     saveShippingSpec: { method:'POST', fields:['zuban','data'] },
     addQualityLog: { method:'POST', fields:['zuban','data'] },
     updateQualityLog: { method:'POST', fields:['id','data'] },
     saveZubanTemplate: { method:'POST', fields:['data'] },
     saveInspectionRecord: { method:'POST', fields:['payload','targetState'] },
-    approveRecord: { method:'POST', fields:['recordId'] },
+    approveRecord: { method:'POST', fields:['recordId','customerFolderOverride','zubanFolderOverride'] },
     returnRecord: { method:'POST', fields:['recordId','comment'] },
     reopenApprovedRecord: { method:'POST', fields:['recordId','comment'] }
   };
@@ -571,6 +581,32 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       function onCancel(){ cleanup(null); }
       okBtn.addEventListener('click', onOk);
       cancelBtn.addEventListener('click', onCancel);
+    });
+  }
+
+  // 似た名前の既存フォルダ（候補）から選ばせるモーダル。候補のどれかを押せばその名前を、
+  // 「新しいフォルダを作る」を押せばnullを返す（＝targetのまま新規作成する合図）
+  function askFolderChoice_(title, target, candidates){
+    return new Promise(function(resolve){
+      var overlay = document.getElementById('folderModalOverlay');
+      document.getElementById('folderModalTitle').textContent = title;
+      document.getElementById('folderModalNote').textContent = '「' + target + '」という名前のフォルダはまだありませんが、似た名前の既存フォルダが見つかりました。どちらを使いますか？';
+      var box = document.getElementById('folderModalChoices');
+      box.innerHTML = '';
+      function choose(val){ overlay.hidden = true; resolve(val); }
+      candidates.forEach(function(name){
+        var b = document.createElement('button');
+        b.className = 'btn btn-ghost'; b.style.textAlign = 'left';
+        b.textContent = '📁 ' + name;
+        b.addEventListener('click', function(){ choose(name); });
+        box.appendChild(b);
+      });
+      var newBtn = document.createElement('button');
+      newBtn.className = 'btn btn-accent'; newBtn.style.textAlign = 'left';
+      newBtn.textContent = '＋ 新しいフォルダを作る（' + target + '）';
+      newBtn.addEventListener('click', function(){ choose(null); });
+      box.appendChild(newBtn);
+      overlay.hidden = false;
     });
   }
 
@@ -1486,9 +1522,31 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       });
     }).catch(errToast);
   }
+  // PDFの保存先フォルダ候補を確認し、必要なときだけ選択モーダルを出す。
+  // 得意先→図番の順で、それぞれ完全一致フォルダが無く、かつ似た名前の候補がある時だけ聞く
+  function resolvePdfFolderChoices_(zuban){
+    return run('checkCustomerFolder', zuban).then(function(custCheck){
+      var p = Promise.resolve({ customerOverride: null, resolvedCustomer: custCheck.target });
+      if(custCheck.needsChoice){
+        p = askFolderChoice_('得意先フォルダの確認', custCheck.target, custCheck.candidates).then(function(choice){
+          return { customerOverride: choice, resolvedCustomer: choice || custCheck.target };
+        });
+      }
+      return p;
+    }).then(function(r){
+      return run('checkZubanFolder', r.resolvedCustomer, zuban).then(function(zCheck){
+        if(!zCheck.needsChoice) return { customerOverride: r.customerOverride, zubanOverride: null };
+        return askFolderChoice_('図番フォルダの確認', zCheck.target, zCheck.candidates).then(function(choice){
+          return { customerOverride: r.customerOverride, zubanOverride: choice };
+        });
+      });
+    });
+  }
   // 承認待ちの記録を検査入力画面（読み取り専用）で開き、そこで承認・差し戻しする
   document.getElementById('reviewApproveBtn').addEventListener('click', function(){
-    run('approveRecord', state.inspect.recordId).then(function(res){
+    resolvePdfFolderChoices_(state.inspect.zuban).then(function(f){
+      return run('approveRecord', state.inspect.recordId, f.customerOverride, f.zubanOverride);
+    }).then(function(res){
       toast(res.pdfWarning ? ('承認しました。' + res.pdfWarning) : '承認し、PDFを作成しました。');
       go('approve');
     }).catch(errToast);
