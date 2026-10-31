@@ -1099,11 +1099,17 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         if(shared){ row.children[2].innerHTML = '<span class="pill waiting">共有</span>'; }
         var photoUrls = (q['写真URL'] || '').split('\n').filter(Boolean);
         var photoBox = row.querySelector('.qlPhotos');
-        photoUrls.forEach(function(url, i){
+        photoUrls.forEach(function(url){
           var a = document.createElement('a');
           a.href = url; a.target = '_blank'; a.rel = 'noopener';
-          a.textContent = '📷' + (photoUrls.length > 1 ? (i+1) : '');
-          a.style.cssText = 'margin-right:8px; font-size:12px; text-decoration:none';
+          a.style.cssText = 'display:inline-block; margin-right:6px';
+          var img = document.createElement('img');
+          img.src = toDrivePreviewUrl_(url);
+          img.loading = 'lazy';
+          img.style.cssText = 'width:48px; height:48px; object-fit:cover; border-radius:6px; border:1px solid var(--border-strong); vertical-align:middle';
+          img.alt = '写真';
+          img.onerror = function(){ a.textContent = '📷'; a.style.textDecoration = 'none'; img.remove(); };
+          a.appendChild(img);
           photoBox.appendChild(a);
         });
         row.querySelector('.qlEditBtn').addEventListener('click', function(){ openQlForm_(q['投稿ID'], q['内容'], shared, q['写真URL']); });
@@ -1151,21 +1157,31 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.getElementById('qlPhotoInput').value = '';
     qlForm.hidden = true;
   }
+  // GoogleドライブのファイルURL（.../file/d/{ID}/view）をサムネイル表示用URLに変換する
+  function toDrivePreviewUrl_(driveUrl){
+    var m = /\/d\/([^/]+)/.exec(driveUrl || '');
+    return m ? ('https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w200') : driveUrl;
+  }
   function renderQlPhotoThumbs_(){
     var box = document.getElementById('qlPhotoThumbs');
     box.innerHTML = '';
     (state.qlPhotoUrls || []).forEach(function(url, i){
-      var a = document.createElement('a');
-      a.href = url; a.target = '_blank'; a.title = '写真を見る（タップで削除）';
-      a.textContent = '📷 ' + (i+1);
-      a.className = 'btn btn-ghost btn-sm';
-      a.addEventListener('click', function(e){
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'position:relative; cursor:pointer';
+      wrap.title = 'タップで添付から外す';
+      var img = document.createElement('img');
+      img.src = toDrivePreviewUrl_(url);
+      img.loading = 'lazy';
+      img.style.cssText = 'width:64px; height:64px; object-fit:cover; border-radius:8px; border:1px solid var(--border-strong); display:block';
+      img.alt = '写真';
+      img.onerror = function(){ img.replaceWith(document.createTextNode('📷')); };
+      wrap.appendChild(img);
+      wrap.addEventListener('click', function(){
         if(!confirm('この写真を添付から外しますか？（画像自体は削除されません）')) return;
-        e.preventDefault();
         state.qlPhotoUrls.splice(i, 1);
         renderQlPhotoThumbs_();
       });
-      box.appendChild(a);
+      box.appendChild(wrap);
     });
   }
   // スマホのカメラ写真はそのままだと数MBあり、Base64化して送ると通信が不安定な環境で
