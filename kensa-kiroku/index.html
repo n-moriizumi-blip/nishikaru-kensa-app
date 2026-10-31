@@ -480,7 +480,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     searchRecords: { method:'GET', fields:['filter'] },
     listZubanNames: { method:'GET', fields:[] },
     listCustomerNames: { method:'GET', fields:[] },
-    uploadQualityPhoto: { method:'POST', fields:['zuban','filename','mimeType','dataBase64'] },
+    uploadQualityPhoto: { method:'POST', fields:['zuban','filename','mimeType','dataBase64','customerFolderOverride','zubanFolderOverride'] },
     checkCustomerFolder: { method:'GET', fields:['zuban'] },
     checkZubanFolder: { method:'GET', fields:['customerFolderName','zuban'] },
     listPeopleOptions: { method:'GET', fields:[] },
@@ -1216,24 +1216,34 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   document.getElementById('qlPhotoBtn').addEventListener('click', function(){
     document.getElementById('qlPhotoInput').click();
   });
+  // 図番ごとにフォルダ候補の確認は1回だけ行い、同じ記録追加セッション中は使い回す
+  // （承認時と同じresolvePdfFolderChoices_を流用。選んだ内容は図番マスタに書き戻るため、
+  // 次回以降はこのチェック自体が不要になる＝完全一致ですぐ進む）
+  var qlFolderChoiceCache = null;
   document.getElementById('qlPhotoInput').addEventListener('change', function(e){
     var files = Array.prototype.slice.call(e.target.files || []);
     e.target.value = '';
     if(!files.length || !state.zubanPage) return;
+    var zuban = state.zubanPage.zuban;
     var label = document.getElementById('qlPhotoLabel');
-    var chain = Promise.resolve();
-    files.forEach(function(file, idx){
-      chain = chain.then(function(){
-        label.textContent = files.length > 1 ? 'アップロード中…（' + (idx+1) + '/' + files.length + '）' : 'アップロード中…';
-        return resizeImageForUpload_(file).then(function(uploadBlob){
-          return fileToBase64_(uploadBlob).then(function(base64){
-            var filename = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
-            return run('uploadQualityPhoto', state.zubanPage.zuban, filename, 'image/jpeg', base64);
-          });
-        }).then(function(res){ state.qlPhotoUrls.push(res.url); renderQlPhotoThumbs_(); });
+    var folderPromise = (qlFolderChoiceCache && qlFolderChoiceCache.zuban === zuban)
+      ? Promise.resolve(qlFolderChoiceCache)
+      : resolvePdfFolderChoices_(zuban).then(function(f){ f.zuban = zuban; qlFolderChoiceCache = f; return f; });
+    folderPromise.then(function(folder){
+      var chain = Promise.resolve();
+      files.forEach(function(file, idx){
+        chain = chain.then(function(){
+          label.textContent = files.length > 1 ? 'アップロード中…（' + (idx+1) + '/' + files.length + '）' : 'アップロード中…';
+          return resizeImageForUpload_(file).then(function(uploadBlob){
+            return fileToBase64_(uploadBlob).then(function(base64){
+              var filename = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+              return run('uploadQualityPhoto', zuban, filename, 'image/jpeg', base64, folder.customerOverride, folder.zubanOverride);
+            });
+          }).then(function(res){ state.qlPhotoUrls.push(res.url); renderQlPhotoThumbs_(); });
+        });
       });
-    });
-    chain.then(function(){ label.textContent = ''; }).catch(function(err){ label.textContent = ''; errToast(err); });
+      return chain;
+    }).then(function(){ label.textContent = ''; }).catch(function(err){ label.textContent = ''; errToast(err); });
   });
   document.getElementById('addQualityLog').addEventListener('click', function(){
     if(!qlForm.hidden && !state.editingQlId){ closeQlForm_(); return; }
