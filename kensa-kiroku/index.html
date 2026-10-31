@@ -1064,7 +1064,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   wireConditionalReveal('keyenceHas', 'keyenceProgWrap', '有');
 
   // 出荷仕様は誤操作防止のため、「編集する」を押すまで変更できない
-  var SHIPPING_FIELD_IDS = ['sp_検査記録の添付','sp_ミルシート','sp_トレー梱包の種類','sp_NG・限度見本の有無','sp_カット品','sp_テストピース','gaugeHas','sp_借用ゲージの種類','keyenceHas','sp_キーエンスプログラム名','sp_外観ランク'];
+  var SHIPPING_FIELD_IDS = ['sp_検査記録の添付','sp_ミルシート','sp_トレー梱包の種類','sp_NG・限度見本の有無','sp_カット品','sp_テストピース','gaugeHas','sp_借用ゲージの種類','keyenceHas','sp_キーエンスプログラム名','sp_外観ランク','sp_処理検査成績書添付'];
   function setShippingEditable_(editable){
     SHIPPING_FIELD_IDS.forEach(function(id){ var el = document.getElementById(id); if(el) el.disabled = !editable; });
     document.getElementById('editShipping').style.display = editable ? 'none' : '';
