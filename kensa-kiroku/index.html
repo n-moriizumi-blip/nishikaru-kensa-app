@@ -211,6 +211,7 @@
           <label class="fl">キーエンス測定<select id="keyenceHas" disabled><option>無</option><option>有</option></select></label>
           <label class="fl" id="keyenceProgWrap" hidden>プログラム名<input type="text" id="sp_キーエンスプログラム名" disabled></label>
           <label class="fl">外観ランク<select id="sp_外観ランク" disabled><option>A</option><option>B</option><option>C</option></select></label>
+          <label class="fl">処理検査成績書添付<select id="sp_処理検査成績書添付" disabled><option>必要</option><option>不要</option></select></label>
         </div>
         <div style="padding:0 16px 16px; display:flex; justify-content:flex-end; gap:8px">
           <button class="btn btn-ghost btn-sm" id="editShipping">✏️ 編集する</button>
@@ -279,6 +280,18 @@
           <label class="fl">処理<input type="text" id="in_process"></label>
           <label class="fl">受注・客先番号<input type="text" id="in_orderNo"></label>
           <label class="fl" style="grid-column:1 / -1">備考<textarea id="in_note" placeholder="任意" rows="2"></textarea></label>
+        </div>
+      </div>
+
+      <div class="card" id="certCard" hidden>
+        <div class="card-head"><h2>処理検査成績書</h2><span class="note">出荷仕様で「必要」と設定されている図番です</span></div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:10px">
+          <div>
+            <input type="file" id="certInput" accept="image/*,application/pdf" multiple hidden>
+            <button type="button" class="btn btn-ghost btn-sm" id="certBtn">📎 成績書を添付</button>
+            <span class="note" id="certLabel" style="margin-left:8px"></span>
+          </div>
+          <div id="certList" class="rlist"></div>
         </div>
       </div>
 
@@ -490,6 +503,8 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     saveZubanTemplate: { method:'POST', fields:['data'] },
     saveInspectionRecord: { method:'POST', fields:['payload','targetState'] },
     approveRecord: { method:'POST', fields:['recordId','customerFolderOverride','zubanFolderOverride'] },
+    uploadCertificate: { method:'POST', fields:['recordId','zuban','filename','mimeType','dataBase64','customerFolderOverride','zubanFolderOverride'] },
+    deleteCertificate: { method:'POST', fields:['recordId','fileId'] },
     returnRecord: { method:'POST', fields:['recordId','comment'] },
     reopenApprovedRecord: { method:'POST', fields:['recordId','comment'] }
   };
@@ -1034,7 +1049,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   });
 
   /* ---------- 図番ページ ---------- */
-  var SHIPPING_SELECT_IDS = ['検査記録の添付','ミルシート','トレー梱包の種類','NG・限度見本の有無','カット品','テストピース','外観ランク'];
+  var SHIPPING_SELECT_IDS = ['検査記録の添付','ミルシート','トレー梱包の種類','NG・限度見本の有無','カット品','テストピース','外観ランク','処理検査成績書添付'];
   var tray = document.getElementById('sp_トレー梱包の種類');
   ['無','G-050-3','5-912052-2(25個)','E-080-1','MT10-4','MT8-2'].forEach(function(v){
     var o = document.createElement('option'); o.value = v; o.textContent = v; tray.appendChild(o);
@@ -1315,7 +1330,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
 
   function openInspect(zuban, info){
     go('inspect');
-    state.inspect = { zuban: zuban, info: info, recordId: null, dirty: true };
+    state.inspect = { zuban: zuban, info: info, recordId: null, dirty: true, attachments: [] };
     sampleCountTouched = false;
     document.getElementById('inspectTitle').textContent = zuban;
     document.getElementById('inspectSub').textContent = (info.customer || '') + ' / 新規作成';
@@ -1333,6 +1348,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     defaultInspector_();
     setInspectMode_('new', null);
     buildItemsTable(info.items, DEFAULT_SAMPLE_COUNT);
+    setupCertCard_();
   }
   // 図番ページから「確認して検査を始める」：既に同じ図番を入力中ならそれを壊さず戻るだけ、
   // そうでなければ新規にテンプレートから組み立てる（実測値入力中に図番ページを見に来ても安全）
@@ -1383,7 +1399,11 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var mode = (r['状態'] === '承認済み') ? 'view' : (r['状態'] === '承認待ち') ? 'review' : 'edit';
       var tmpl = recordToTemplate_(r, res.items, res.template);
       go('inspect');
-      state.inspect = { zuban: r['図番'], info: { zuban: r['図番'], customer: tmpl.customer, items: tmpl.items, defaultSampleCount: tmpl.sampleCount }, recordId: recordId, dirty: true };
+      state.inspect = {
+        zuban: r['図番'],
+        info: { zuban: r['図番'], customer: tmpl.customer, items: tmpl.items, defaultSampleCount: tmpl.sampleCount, shipping: res.shipping },
+        recordId: recordId, dirty: true, attachments: res.attachments || []
+      };
       sampleCountTouched = false;
       document.getElementById('inspectTitle').textContent = r['図番'];
       var subLabel = { view: '閲覧', review: '承認の確認（依頼者: ' + r['検査員名'] + '）', edit: (r['状態'] === '差し戻し' ? '差し戻し・再編集' : '下書きの続き') }[mode];
@@ -1403,10 +1423,86 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       else { pdfBtn.hidden = true; }
       buildItemsTable(tmpl.items, tmpl.sampleCount, tmpl.prefill, mode !== 'edit');
       setInspectMode_(mode, r);
+      setupCertCard_();
     }).catch(errToast);
   }
   // 記録一覧・最近の記録・過去の検査記録のどこから開いても、検査入力画面の中で状態に応じた表示に振り分ける
   function openAnyRecord(recordId){ openInspectForRecord(recordId); }
+
+  /* ---------- 処理検査成績書の添付（出荷仕様で「必要」の図番だけカードを出す） ---------- */
+  function setupCertCard_(){
+    var needed = !!(state.inspect && state.inspect.info && state.inspect.info.shipping && state.inspect.info.shipping['処理検査成績書添付'] === '必要');
+    document.getElementById('certCard').hidden = !needed;
+    renderCertList_(state.inspect ? (state.inspect.attachments || []) : []);
+  }
+  function renderCertList_(attachments){
+    var box = document.getElementById('certList');
+    box.innerHTML = '';
+    if(!attachments.length){ box.innerHTML = '<div class="rempty">まだ添付されていません</div>'; return; }
+    attachments.forEach(function(a){
+      var row = document.createElement('div'); row.className = 'rrow'; row.style.gridTemplateColumns = '1fr 32px';
+      var link = document.createElement('a');
+      link.href = 'https://drive.google.com/file/d/' + a.fileId + '/view'; link.target = '_blank'; link.rel = 'noopener';
+      link.textContent = '📎 ' + (a.name || 'ファイル');
+      link.style.cssText = 'font-size:13px; align-self:center';
+      row.appendChild(link);
+      if(state.inspectEditable){
+        var del = document.createElement('button');
+        del.type = 'button'; del.className = 'rmBtn'; del.title = '削除';
+        del.textContent = '🗑️';
+        del.addEventListener('click', function(){
+          if(!confirm('この成績書を削除しますか？')) return;
+          run('deleteCertificate', state.inspect.recordId, a.fileId).then(function(){
+            state.inspect.attachments = (state.inspect.attachments || []).filter(function(x){ return x.fileId !== a.fileId; });
+            renderCertList_(state.inspect.attachments);
+          }).catch(errToast);
+        });
+        row.appendChild(del);
+      } else {
+        row.appendChild(document.createElement('div'));
+      }
+      box.appendChild(row);
+    });
+  }
+  var certFolderChoiceCache = null;
+  document.getElementById('certBtn').addEventListener('click', function(){
+    if(!state.inspect) return;
+    var ensureRecordId = state.inspect.recordId
+      ? Promise.resolve(state.inspect.recordId)
+      : run('saveInspectionRecord', collectInspectPayload_(), '記入中').then(function(res){ state.inspect.recordId = res.recordId; return res.recordId; });
+    ensureRecordId.then(function(){ document.getElementById('certInput').click(); }).catch(errToast);
+  });
+  document.getElementById('certInput').addEventListener('change', function(e){
+    var files = Array.prototype.slice.call(e.target.files || []);
+    e.target.value = '';
+    if(!files.length || !state.inspect || !state.inspect.recordId) return;
+    var zuban = state.inspect.zuban, recordId = state.inspect.recordId;
+    var label = document.getElementById('certLabel');
+    var folderPromise = (certFolderChoiceCache && certFolderChoiceCache.zuban === zuban)
+      ? Promise.resolve(certFolderChoiceCache)
+      : resolvePdfFolderChoices_(zuban).then(function(f){ f.zuban = zuban; certFolderChoiceCache = f; return f; });
+    folderPromise.then(function(folder){
+      var chain = Promise.resolve();
+      files.forEach(function(file, idx){
+        chain = chain.then(function(){
+          label.textContent = files.length > 1 ? 'アップロード中…（' + (idx+1) + '/' + files.length + '）' : 'アップロード中…';
+          return resizeImageForUpload_(file).then(function(uploadBlob){
+            return fileToBase64_(uploadBlob).then(function(base64){
+              var ext = uploadBlob.type === 'application/pdf' ? '.pdf' : '.jpg';
+              var filename = (file.name || '成績書').replace(/\.[^.]+$/, '') + ext;
+              var mimeType = uploadBlob.type || 'image/jpeg';
+              return run('uploadCertificate', recordId, zuban, filename, mimeType, base64, folder.customerOverride, folder.zubanOverride);
+            });
+          }).then(function(res){
+            state.inspect.attachments = state.inspect.attachments || [];
+            state.inspect.attachments.push({ fileId: res.fileId, name: res.name });
+            renderCertList_(state.inspect.attachments);
+          });
+        });
+      });
+      return chain;
+    }).then(function(){ label.textContent = ''; }).catch(function(err){ label.textContent = ''; errToast(err); });
+  });
   function setInspectMode_(mode, record){
     var editable = (mode === 'edit' || mode === 'new');
     state.inspectEditable = editable;
