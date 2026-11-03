@@ -799,6 +799,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         return;
       }
       state.pendingMfgNo = res.mfgNo;
+      state.pendingLotQty = res.lotQty || '';
       if(res.hasTemplate){
         document.getElementById('new-step-found').hidden = false;
         document.getElementById('foundTitle').textContent = '製造番号 ' + res.mfgNo + ' を読み取りました';
@@ -1351,8 +1352,18 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.getElementById('in_mfgNo').value = state.pendingMfgNo || '';
     state.pendingMfgNo = null;
     document.getElementById('in_date').value = new Date().toISOString().slice(0,10);
-    document.getElementById('in_lotCount').value = '';
-    document.getElementById('in_sampleCount').value = DEFAULT_SAMPLE_COUNT;
+    // QRで読み取った進捗状況照会にロット数の候補（完了数量）があれば入れる。直接値を
+    // 入れるだけだとinputイベントが発火せず抜取数の自動計算（下のイベントリスナー）が
+    // 反応しないため、ここで同じ計算をその場で行ってsampleCountに反映する
+    var qrLotQty = state.pendingLotQty || '';
+    state.pendingLotQty = null;
+    var sampleCount = DEFAULT_SAMPLE_COUNT;
+    if(qrLotQty){
+      var calcCount = sampleCountForLot_(qrLotQty);
+      if(calcCount !== null) sampleCount = calcCount;
+    }
+    document.getElementById('in_lotCount').value = qrLotQty;
+    document.getElementById('in_sampleCount').value = sampleCount;
     document.getElementById('in_lotNo').value = '';
     document.getElementById('in_material').value = (info.material || '') + '(L/N.)';
     document.getElementById('in_process').value = '';
@@ -1361,7 +1372,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.getElementById('viewPdfBtn').hidden = true;
     defaultInspector_();
     setInspectMode_('new', null);
-    buildItemsTable(info.items, DEFAULT_SAMPLE_COUNT);
+    buildItemsTable(info.items, sampleCount);
     setupCertCard_();
   }
   // 図番ページから「確認して検査を始める」：既に同じ図番を入力中ならそれを壊さず戻るだけ、
@@ -1423,7 +1434,10 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var subLabel = { view: '閲覧', review: '承認の確認（依頼者: ' + r['検査員名'] + '）', edit: (r['状態'] === '差し戻し' ? '差し戻し・再編集' : '下書きの続き') }[mode];
       document.getElementById('inspectSub').textContent = (tmpl.customer || '') + ' / ' + subLabel;
       document.getElementById('in_mfgNo').value = r['製造番号'];
-      document.getElementById('in_date').value = r['検査日'];
+      // 検査日は実際に検査作業をしている日を記録したいので、下書きの続き・差し戻し再編集
+      // （入力可能なモード）では開いた日に更新する。閲覧・承認待ちの確認（読み取り専用）は
+      // 記録済みの検査日をそのまま表示する
+      document.getElementById('in_date').value = (mode === 'edit') ? new Date().toISOString().slice(0,10) : r['検査日'];
       if(r['検査員名']) document.getElementById('in_inspector').value = r['検査員名'];
       document.getElementById('in_lotCount').value = r['ロット数'];
       document.getElementById('in_sampleCount').value = r['抜取数'];
@@ -1728,6 +1742,14 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   }
   setInterval(autoSaveTick, AUTOSAVE_INTERVAL_MS);
   document.getElementById('sendApproval').addEventListener('click', function(){
+    // 材質/ロットNo.は自動で"(L/N.)"が入っているだけの状態（実際のロットNo.等が
+    // 未記入）だと承認依頼を送れないようにする
+    var materialEl = document.getElementById('in_material');
+    if((materialEl.value || '').replace(/\(L\/N\.\)/g, '').trim() === ''){
+      toast('材質/ロットNo.を入力してください。');
+      materialEl.focus();
+      return;
+    }
     var payload = collectInspectPayload_();
     payload.approverName = document.getElementById('approverSelect').value;
     run('saveInspectionRecord', payload, '承認待ち').then(function(){
