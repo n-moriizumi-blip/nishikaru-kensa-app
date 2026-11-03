@@ -201,18 +201,18 @@
       <div class="card">
         <div class="card-head"><h2>出荷仕様</h2><span class="note">図番ごとに1件・上書き。誤って変更しないよう「編集する」を押すまで変更できません</span></div>
         <div style="padding:16px" class="formGrid">
-          <label class="fl">検査記録の添付<select id="sp_検査記録の添付" disabled><option>必要</option><option>不要</option></select></label>
-          <label class="fl">ミルシート<select id="sp_ミルシート" disabled><option>必要</option><option>不要</option></select></label>
-          <label class="fl">トレー梱包の種類<select id="sp_トレー梱包の種類" disabled></select></label>
-          <label class="fl">NG・限度見本の有無<select id="sp_NG・限度見本の有無" disabled><option>有</option><option>無</option></select></label>
-          <label class="fl">カット品<select id="sp_カット品" disabled><option>必要</option><option>不要</option></select></label>
-          <label class="fl">テストピース<select id="sp_テストピース" disabled><option>必要</option><option>不要</option></select></label>
-          <label class="fl">借用ゲージ等<select id="gaugeHas" disabled><option>無</option><option>有</option></select></label>
+          <label class="fl">検査記録の添付<select id="sp_検査記録の添付" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
+          <label class="fl">ミルシート<select id="sp_ミルシート" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
+          <label class="fl">トレー梱包の種類<select id="sp_トレー梱包の種類" disabled><option value="">（未設定）</option></select></label>
+          <label class="fl">NG・限度見本の有無<select id="sp_NG・限度見本の有無" disabled><option value="">（未設定）</option><option>有</option><option>無</option></select></label>
+          <label class="fl">カット品<select id="sp_カット品" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
+          <label class="fl">テストピース<select id="sp_テストピース" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
+          <label class="fl">借用ゲージ等<select id="gaugeHas" disabled><option value="">（未設定）</option><option>無</option><option>有</option></select></label>
           <label class="fl" id="gaugeTypeWrap">ゲージの種類<input type="text" id="sp_借用ゲージの種類" disabled></label>
-          <label class="fl">キーエンス測定<select id="keyenceHas" disabled><option>無</option><option>有</option></select></label>
+          <label class="fl">キーエンス測定<select id="keyenceHas" disabled><option value="">（未設定）</option><option>無</option><option>有</option></select></label>
           <label class="fl" id="keyenceProgWrap" hidden>プログラム名<input type="text" id="sp_キーエンスプログラム名" disabled></label>
-          <label class="fl">外観ランク<select id="sp_外観ランク" disabled><option>A</option><option>B</option><option>C</option></select></label>
-          <label class="fl">処理検査成績書添付<select id="sp_処理検査成績書添付" disabled><option>必要</option><option>不要</option></select></label>
+          <label class="fl">外観ランク<select id="sp_外観ランク" disabled><option value="">（未設定）</option><option>A</option><option>B</option><option>C</option><option>D</option></select></label>
+          <label class="fl">処理検査成績書添付<select id="sp_処理検査成績書添付" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
         </div>
         <div style="padding:0 16px 16px; display:flex; justify-content:flex-end; gap:8px">
           <button class="btn btn-ghost btn-sm" id="editShipping">✏️ 編集する</button>
@@ -1107,10 +1107,12 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       document.getElementById('zubanItemCount').textContent = '全' + res.info.items.length + '項目（抜取数はロット数に応じて検査時に自動計算）';
 
       var sp = res.info.shipping || {};
-      SHIPPING_SELECT_IDS.forEach(function(k){ var el = document.getElementById('sp_'+k); if(el && sp[k]) el.value = sp[k]; });
-      document.getElementById('gaugeHas').value = sp['借用ゲージ等の有無'] || '無';
+      // 未設定の項目は先頭の空option「（未設定）」のままにする（以前は未設定でも先頭の
+      // 実選択肢が表示され、設定済みと区別がつかなかった。2026-11-04修正）
+      SHIPPING_SELECT_IDS.forEach(function(k){ var el = document.getElementById('sp_'+k); if(el) el.value = sp[k] || ''; });
+      document.getElementById('gaugeHas').value = sp['借用ゲージ等の有無'] || '';
       document.getElementById('sp_借用ゲージの種類').value = sp['借用ゲージの種類'] || '';
-      document.getElementById('keyenceHas').value = sp['キーエンス測定の有無'] || '無';
+      document.getElementById('keyenceHas').value = sp['キーエンス測定の有無'] || '';
       document.getElementById('sp_キーエンスプログラム名').value = sp['キーエンスプログラム名'] || '';
       document.getElementById('gaugeTypeWrap').hidden = (document.getElementById('gaugeHas').value !== '有');
       document.getElementById('keyenceProgWrap').hidden = (document.getElementById('keyenceHas').value !== '有');
@@ -1741,12 +1743,21 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     }).catch(function(){});
   }
   setInterval(autoSaveTick, AUTOSAVE_INTERVAL_MS);
+  // 材質/ロットNo.欄の最後の括弧（既定の(L/N.)、または書き換えた別の管理番号の括弧）の
+  // 中に数字が入っているか判定する。括弧が無い場合は欄全体に数字があるかで見る
+  function materialLotNoIsValid_(value){
+    var v = value || '';
+    var parens = v.match(/\(([^()]*)\)/g);
+    if(parens && parens.length) return /\d/.test(parens[parens.length - 1]);
+    return /\d/.test(v);
+  }
   document.getElementById('sendApproval').addEventListener('click', function(){
-    // 材質/ロットNo.は自動で"(L/N.)"が入っているだけの状態（実際のロットNo.等が
-    // 未記入）だと承認依頼を送れないようにする
+    // 材質/ロットNo.は自動で"(L/N.)"が入るが、()の中に数字（ロットNo.）が無いと
+    // 承認依頼を送れないようにする。(L/N.)ごと別の管理番号に書き換えた場合は、
+    // その括弧の中に数字があればOK（最後の括弧＝ロットNo./管理番号欄とみなす）
     var materialEl = document.getElementById('in_material');
-    if((materialEl.value || '').replace(/\(L\/N\.\)/g, '').trim() === ''){
-      toast('材質/ロットNo.を入力してください。');
+    if(!materialLotNoIsValid_(materialEl.value)){
+      toast('材質/ロットNo.の( )内にロットNo.か管理番号の数字を入力してください。');
       materialEl.focus();
       return;
     }
