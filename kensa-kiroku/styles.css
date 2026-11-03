@@ -119,6 +119,9 @@ body{
 .rrow .zu{font-weight:700; font-size:13px}
 .rrow .meta{font-size:11.5px; color:var(--ink-dim)}
 .rrow .date{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink-dim)}
+/* 品質情報の内容本文。.metaより大きく・はっきりした色にして読みやすくする（投稿者名だけ控えめに） */
+.rrow .qlContent{font-size:14px; line-height:1.65; color:var(--ink); margin-top:2px; white-space:pre-wrap}
+.rrow .qlBy{font-size:11.5px; color:var(--ink-dim)}
 .rempty{padding:22px 16px; color:var(--ink-faint); font-size:12.5px; text-align:center}
 @media (max-width:640px){ .rrow{grid-template-columns:1fr auto; grid-template-areas:"zu st" "meta meta"; row-gap:3px} .rrow .date, .rrow .arrow{display:none} .rrow .st{grid-area:st} .rrow .meta{grid-area:meta} }
 

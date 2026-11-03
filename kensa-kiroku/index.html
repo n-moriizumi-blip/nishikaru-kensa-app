@@ -1129,11 +1129,13 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var qlBox = document.getElementById('qualityLogList'); qlBox.innerHTML = '';
       if(!res.info.qualityLog.length){ qlBox.innerHTML = '<div class="rempty">まだ記録がありません</div>'; }
       res.info.qualityLog.forEach(function(q){
-        var row = document.createElement('div'); row.className = 'rrow'; row.style.gridTemplateColumns = '70px 1fr 60px 32px';
-        row.innerHTML = '<div class="date"></div><div><div class="zu" style="font-size:12.5px"></div><div class="meta"></div><div class="qlPhotos" style="margin-top:4px"></div></div><div></div><button type="button" class="rmBtn qlEditBtn" title="編集する">✏️</button>';
-        row.querySelector('.date').textContent = q['タイムスタンプ'].slice(5,10).replace('-', '/');
+        var row = document.createElement('div'); row.className = 'rrow'; row.style.gridTemplateColumns = '86px 1fr 60px 32px';
+        row.innerHTML = '<div class="date"></div><div><div class="zu" style="font-size:12.5px"></div><div class="qlContent"></div><span class="qlBy"></span><div class="qlPhotos" style="margin-top:4px"></div></div><div></div><button type="button" class="rmBtn qlEditBtn" title="編集する">✏️</button>';
+        // 日付は年まで表示する（以前はMM/DDのみで年をまたぐと紛らわしかった）
+        row.querySelector('.date').textContent = q['タイムスタンプ'].slice(0, 10).replace(/-/g, '/');
         row.querySelector('.zu').textContent = q['部署'] || '';
-        row.querySelector('.meta').textContent = q['内容'] + '（' + q['投稿者名'] + '）';
+        row.querySelector('.qlContent').textContent = q['内容'];
+        row.querySelector('.qlBy').textContent = '（' + q['投稿者名'] + '）';
         // 共有フラグは西軽精機ナレッジ側での表示方法を切り替えるためのものなので、
         // 検査記録ポータルの一覧では区別なく常に同じ見た目で表示する（editingQlIdの
         // チェックボックス初期値としては引き続き使う）
