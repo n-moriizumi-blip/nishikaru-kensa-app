@@ -242,6 +242,10 @@
         <div class="rlist" id="qualityLogList"></div>
       </div>
 
+      <label class="fl" style="display:flex; align-items:center; gap:8px; font-size:13px; padding:10px 12px; border:1px solid var(--border-strong); border-radius:8px; background:var(--surface)">
+        <input type="checkbox" id="zubanConfirmCheck"> 出荷仕様・品質情報を確認しました（検査を始めるにはチェックが必要です）
+      </label>
+
       <div class="card">
         <div class="card-head"><h2>検査記録テンプレート</h2><span class="note" id="zubanItemCount">—</span></div>
         <div style="padding:16px; display:flex; gap:8px; flex-wrap:wrap">
@@ -1092,6 +1096,9 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
 
   function openZubanPage(zuban){
     go('zuban');
+    // 検査を始める前に出荷仕様・品質情報を確認したか、開くたび毎回チェックを要求する
+    document.getElementById('zubanConfirmCheck').checked = false;
+    updateStartButtonState_();
     document.getElementById('zubanTitle').textContent = zuban;
     document.getElementById('zubanItemCount').textContent = '読み込み中…';
     document.getElementById('qualityLogList').innerHTML = '<div class="rempty">読み込み中…</div>';
@@ -1377,19 +1384,35 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     buildItemsTable(info.items, sampleCount);
     setupCertCard_();
   }
+  // 「確認して検査を始める」ボタンは、出荷仕様・品質情報の確認チェックが入るまで
+  // 見た目上も押しにくくしておく（実際の制御はgoToInspectFromZubanPage内で行う。
+  // 入力中のセッションに戻るだけのときはチェック不要なので、disabled属性ではなく
+  // 見た目だけのソフトな無効化にしている）
+  function updateStartButtonState_(){
+    var ok = document.getElementById('zubanConfirmCheck').checked;
+    var btn = document.getElementById('startInspectFromZuban');
+    btn.style.opacity = ok ? '' : '.45';
+    btn.style.cursor = ok ? '' : 'not-allowed';
+  }
+  document.getElementById('zubanConfirmCheck').addEventListener('change', updateStartButtonState_);
   // 図番ページから「確認して検査を始める」：既に同じ図番を入力中ならそれを壊さず戻るだけ、
   // そうでなければ新規にテンプレートから組み立てる（実測値入力中に図番ページを見に来ても安全）
   function goToInspectFromZubanPage(){
     var zp = state.zubanPage;
     if(!zp || !zp.info){ toast('図番情報が読み込めていません'); return; }
-    // 「図番ページを見る」から来たときだけ、入力中の検査セッションにそのまま戻る。
-    // それ以外（QR・図番検索・新規図番作成からの遷移）は毎回必ず新規の検査として組み立てる。
+    // 「図番ページを見る」から来たときだけ、入力中の検査セッションにそのまま戻る
+    // （この場合は確認チェック不要）。それ以外（QR・図番検索・新規図番作成からの遷移）は
+    // 毎回必ず新規の検査として組み立てるので、出荷仕様・品質情報の確認チェックが必須
     if(state.returnToInspect && state.inspect && state.inspect.zuban === zp.zuban){
       state.returnToInspect = false;
       go('inspect');
-    } else {
-      openInspect(zp.zuban, zp.info);
+      return;
     }
+    if(!document.getElementById('zubanConfirmCheck').checked){
+      toast('出荷仕様・品質情報を確認したらチェックを入れてください。');
+      return;
+    }
+    openInspect(zp.zuban, zp.info);
   }
   document.getElementById('startInspectFromZuban').addEventListener('click', goToInspectFromZubanPage);
   // 検査入力の途中で図番ページを確認したいとき（入力中の内容は消えない）
