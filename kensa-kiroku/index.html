@@ -242,8 +242,8 @@
         <div class="rlist" id="qualityLogList"></div>
       </div>
 
-      <label class="fl" style="display:flex; align-items:center; gap:8px; font-size:13px; padding:10px 12px; border:1px solid var(--border-strong); border-radius:8px; background:var(--surface)">
-        <input type="checkbox" id="zubanConfirmCheck"> 出荷仕様・品質情報を確認しました（検査を始めるにはチェックが必要です）
+      <label class="fl" style="display:flex; align-items:center; gap:10px; font-size:14px; font-weight:700; padding:14px 16px; border:2px solid var(--warn); border-radius:8px; background:var(--warn-soft); color:var(--accent-ink)">
+        <input type="checkbox" id="zubanConfirmCheck" style="width:19px; height:19px; accent-color:var(--warn)"> ⚠️ 出荷仕様・品質情報を確認しました（検査を始めるにはチェックが必要です）
       </label>
 
       <div class="card">
@@ -280,8 +280,8 @@
           <label class="fl">検査員<select id="in_inspector"></select></label>
           <label class="fl">ロット数<input type="text" id="in_lotCount"></label>
           <label class="fl">抜取数<input type="text" id="in_sampleCount" title="ロット数から自動計算されます（直接変更も可能）"></label>
-          <label class="fl">ロットNo.<input type="text" id="in_lotNo"></label>
           <label class="fl">材質/ロットNo.<input type="text" id="in_material"></label>
+          <label class="fl">ロットNo.<input type="text" id="in_lotNo"></label>
           <label class="fl">処理<input type="text" id="in_process"></label>
           <label class="fl">受注・客先番号<input type="text" id="in_orderNo"></label>
           <label class="fl" style="grid-column:1 / -1">備考<textarea id="in_note" placeholder="任意" rows="2"></textarea></label>
