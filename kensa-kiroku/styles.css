@@ -31,7 +31,7 @@ body{
   width:220px; height:100%; color:var(--rail-ink);
   display:flex; flex-direction:column; gap:2px; padding:0 10px 16px 10px;
 }
-.rail-brand{display:flex; align-items:center; gap:9px; padding:18px 8px 16px; cursor:pointer}
+.rail-brand{display:flex; align-items:center; gap:9px; padding:18px 8px 16px; cursor:pointer; flex:none}
 .rail-brand .mark{
   width:30px; height:30px; border-radius:7px; background:var(--accent); color:var(--rail);
   display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; flex:none;
@@ -47,16 +47,21 @@ body{
 .nav-btn .ic{width:19px; text-align:center; font-size:16px; flex:none}
 .nav-btn:hover{background:rgba(255,255,255,.05); color:var(--rail-ink)}
 .nav-btn.active{background:var(--rail-active); color:#fff}
-.rail-divider{height:1px; background:rgba(255,255,255,.08); margin:10px 10px 8px}
+.rail-nav-scroll{
+  flex:1; min-height:0; overflow-y:auto; overflow-x:hidden;
+  display:flex; flex-direction:column; gap:2px; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.18) transparent;
+}
+.rail-nav-scroll::-webkit-scrollbar{width:6px}
+.rail-nav-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18); border-radius:3px}
+.rail-divider{height:1px; background:rgba(255,255,255,.08); margin:10px 10px 8px; flex:none}
 .rail-section-label{padding:0 11px 6px; font-size:10px; font-weight:700; letter-spacing:.06em; color:var(--rail-dim); text-transform:uppercase; white-space:nowrap}
 .navbadge{
   margin-left:auto; min-width:17px; height:17px; padding:0 5px; border-radius:999px;
   background:#d93025; color:#fff; font-size:10.5px; font-weight:800; line-height:17px; text-align:center; flex:none;
 }
-.rail-flex-spacer{flex:1}
 .rail-user{
   display:flex; align-items:center; gap:9px; padding:10px 8px; border-top:1px solid rgba(255,255,255,.08);
-  margin-top:8px;
+  margin-top:8px; flex:none;
 }
 .rail-user .av{
   width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);
