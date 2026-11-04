@@ -296,8 +296,10 @@
 // 発行されたURLをここに貼り付ける(WebApi.gs参照)。空のままだとモックデータで動作する。
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbygThIm2QVUek5ZSvUIuayfY3nUSmktUggkwZtc_Ezzc1GPA8VudiGAg2GKlHS4gfAI/exec';
 
-// Google Identity Services(ログイン)用クライアントID(品質保証課アプリ、Google Cloud Consoleで発行)
-const GOOGLE_CLIENT_ID = '800178947678-qdka8ic7v2c5bbeocgiqd8qqrheafq7e.apps.googleusercontent.com';
+// Google Identity Services(ログイン)用クライアントID。2026-11-04、検査記録ポータルの左ナビから
+// 本アプリへ遷移する際のログイン手間を減らすため、検査記録ポータルと同じクライアントIDに統一した
+// (WebApi.gsのOAUTH_CLIENT_IDと必ず揃えること。以前は品質保証課アプリ専用に別発行していた)
+const GOOGLE_CLIENT_ID = '800178947678-t8c38lm8aqpjkgh1fli1s75vvhploue2.apps.googleusercontent.com';
 
 // 不良項目マスタ(SetupSpreadsheet.gsのDEFECT_ITEMSと同じ39項目、2026-08-12に旧「社内不具合〇月」
 // シートG列の実際のプルダウンに合わせて全面差し替え。2026-11-01にキズ系の「キズ」を削除し39項目に)
