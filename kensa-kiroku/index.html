@@ -207,7 +207,6 @@
     <section class="view" id="view-zuban" hidden>
       <div class="pageHead">
         <div><h1><span class="mono" id="zubanTitle">—</span> 図番ページ</h1><div class="sub" id="zubanSub">検査を始める前に出荷仕様・品質記録を確認してください</div></div>
-        <button class="btn btn-accent" id="startInspectFromZuban">確認して検査を始める →</button>
       </div>
 
       <div class="card">
@@ -256,9 +255,12 @@
         <div class="rlist" id="qualityLogList"></div>
       </div>
 
-      <label class="fl" style="display:flex; align-items:center; gap:10px; font-size:14px; font-weight:700; padding:14px 16px; border:2px solid var(--warn); border-radius:8px; background:var(--warn-soft); color:var(--accent-ink)">
-        <input type="checkbox" id="zubanConfirmCheck" style="width:19px; height:19px; accent-color:var(--warn)"> ⚠️ 出荷仕様・品質情報を確認しました（検査を始めるにはチェックが必要です）
-      </label>
+      <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:14px 16px; border:2px solid var(--warn); border-radius:8px; background:var(--warn-soft)">
+        <label class="fl" style="display:flex; align-items:center; gap:10px; font-size:14px; font-weight:700; color:var(--accent-ink); flex:1; min-width:260px">
+          <input type="checkbox" id="zubanConfirmCheck" style="width:19px; height:19px; accent-color:var(--warn)"> ⚠️ 出荷仕様・品質情報を確認しました（検査を始めるにはチェックが必要です）
+        </label>
+        <button class="btn btn-accent" id="startInspectFromZuban">確認して検査を始める →</button>
+      </div>
 
       <div class="card">
         <div class="card-head"><h2>検査記録テンプレート</h2><span class="note" id="zubanItemCount">—</span></div>
