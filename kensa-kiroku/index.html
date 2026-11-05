@@ -2115,7 +2115,9 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var fill = function(selId, names){
         var sel = document.getElementById(selId);
         var prevValue = sel.value; // 作り直しの前に選択中の値を保持（入力中にトークン自動更新が
+        var blankOption = sel.querySelector('option[value=""]'); // sr_inspectorの「全員」等、
         sel.innerHTML = '';        // 走っても、選んでいた検査員・承認依頼先が消えないようにする）
+        if(blankOption) sel.appendChild(blankOption); // 最初からある空欄の選択肢は消さずに残す
         names.forEach(function(n){ var o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
         if(prevValue && names.indexOf(prevValue) >= 0) sel.value = prevValue;
       };
