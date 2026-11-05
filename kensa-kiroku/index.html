@@ -225,6 +225,8 @@
           <label class="fl" id="gaugeTypeWrap">ゲージの種類<input type="text" id="sp_借用ゲージの種類" disabled></label>
           <label class="fl">キーエンス測定<select id="keyenceHas" disabled><option value="">（未設定）</option><option>無</option><option>有</option></select></label>
           <label class="fl" id="keyenceProgWrap" hidden>プログラム名<input type="text" id="sp_キーエンスプログラム名" disabled></label>
+          <label class="fl">ロットNo.の入力<select id="sp_ロットNo.の入力" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
+          <label class="fl">受注・客先番号の入力<select id="sp_受注・客先番号の入力" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
         </div>
         <div style="padding:0 16px 16px; display:flex; justify-content:flex-end; gap:8px">
           <button class="btn btn-ghost btn-sm" id="editShipping">✏️ 編集する</button>
@@ -291,7 +293,7 @@
         <div style="padding:16px" class="formGrid">
           <label class="fl">製造番号<input type="text" id="in_mfgNo" class="mono"></label>
           <label class="fl">検査日<input type="date" id="in_date"></label>
-          <label class="fl">検査員<select id="in_inspector"></select></label>
+          <label class="fl">検査員<input type="text" id="in_inspector" list="inspectorSuggest" placeholder="品質保証課以外の応援の方も氏名を入力できます"><datalist id="inspectorSuggest"></datalist></label>
           <label class="fl">ロット数<input type="text" id="in_lotCount"></label>
           <label class="fl">抜取数<input type="text" id="in_sampleCount" title="ロット数から自動計算されます（直接変更も可能）"></label>
           <label class="fl">材質/ロットNo.<input type="text" id="in_material"></label>
@@ -604,10 +606,9 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   }
   // 検査員欄をログイン中の人の名前に合わせる（候補に無い名前なら何もしない）
   function defaultInspector_(){
-    var sel = document.getElementById('in_inspector');
+    // in_inspectorは自由入力欄（2026-11-05〜）のため、候補に無い名前でもそのまま既定値にできる
     if(!state.me || !state.me.name) return;
-    var hit = Array.prototype.some.call(sel.options, function(o){ return o.value === state.me.name; });
-    if(hit) sel.value = state.me.name;
+    document.getElementById('in_inspector').value = state.me.name;
   }
 
   /* ---------- ページ内モーダル（差し戻し理由などをprompt()の代わりに使う） ---------- */
@@ -1194,7 +1195,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   }
 
   /* ---------- 図番ページ ---------- */
-  var SHIPPING_SELECT_IDS = ['検査記録の添付','ミルシート','トレー梱包の種類','NG・限度見本の有無','カット品','テストピース','外観ランク','処理検査成績書添付'];
+  var SHIPPING_SELECT_IDS = ['検査記録の添付','ミルシート','トレー梱包の種類','NG・限度見本の有無','カット品','テストピース','外観ランク','処理検査成績書添付','ロットNo.の入力','受注・客先番号の入力'];
   var tray = document.getElementById('sp_トレー梱包の種類');
   ['無','G-050-3','5-912052-2(25個)','E-080-1','MT10-4','MT8-2','その他トレー'].forEach(function(v){
     var o = document.createElement('option'); o.value = v; o.textContent = v; tray.appendChild(o);
@@ -1208,7 +1209,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   wireConditionalReveal('keyenceHas', 'keyenceProgWrap', '有');
 
   // 出荷仕様は誤操作防止のため、「編集する」を押すまで変更できない
-  var SHIPPING_FIELD_IDS = ['sp_検査記録の添付','sp_ミルシート','sp_トレー梱包の種類','sp_NG・限度見本の有無','sp_カット品','sp_テストピース','gaugeHas','sp_借用ゲージの種類','keyenceHas','sp_キーエンスプログラム名','sp_外観ランク','sp_処理検査成績書添付'];
+  var SHIPPING_FIELD_IDS = ['sp_検査記録の添付','sp_ミルシート','sp_トレー梱包の種類','sp_NG・限度見本の有無','sp_カット品','sp_テストピース','gaugeHas','sp_借用ゲージの種類','keyenceHas','sp_キーエンスプログラム名','sp_外観ランク','sp_処理検査成績書添付','sp_ロットNo.の入力','sp_受注・客先番号の入力'];
   function setShippingEditable_(editable){
     SHIPPING_FIELD_IDS.forEach(function(id){ var el = document.getElementById(id); if(el) el.disabled = !editable; });
     document.getElementById('editShipping').style.display = editable ? 'none' : '';
@@ -1551,7 +1552,14 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     // 毎回必ず新規の検査として組み立てるので、出荷仕様・品質情報の確認チェックが必須
     if(state.returnToInspect && state.inspect && state.inspect.zuban === zp.zuban){
       state.returnToInspect = false;
+      // 図番ページで出荷仕様を編集してから戻ってくることがあるため、処理検査成績書の
+      // 要否などをここで最新の状態に揃え直す（これが無いとリロードしないと反映されない
+      // 不具合になっていた、2026-11-05再修正）
+      state.inspect.info.shipping = zp.info.shipping;
+      state.inspect.info.material = zp.info.material;
+      state.inspect.info.process = zp.info.process;
       go('inspect');
+      setupCertCard_();
       return;
     }
     if(!document.getElementById('zubanConfirmCheck').checked){
@@ -1965,15 +1973,17 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       materialEl.focus();
       return;
     }
-    // ロットNo.・受注・客先番号も未入力のまま承認依頼を送れないようにする(2026-11-05)
+    // ロットNo.・受注・客先番号は図番（出荷仕様）ごとに要否が違うため、「必要」の図番だけ
+    // 未入力を止める(2026-11-05、全図番一律だったのをやめて出荷仕様の設定に従うよう修正)
+    var sp = (state.inspect && state.inspect.info && state.inspect.info.shipping) || {};
     var lotNoEl = document.getElementById('in_lotNo');
-    if(!lotNoEl.value.trim()){
+    if(sp['ロットNo.の入力'] === '必要' && !lotNoEl.value.trim()){
       toast('ロットNo.を入力してください。');
       lotNoEl.focus();
       return;
     }
     var orderNoEl = document.getElementById('in_orderNo');
-    if(!orderNoEl.value.trim()){
+    if(sp['受注・客先番号の入力'] === '必要' && !orderNoEl.value.trim()){
       toast('受注・客先番号を入力してください。');
       orderNoEl.focus();
       return;
@@ -2116,9 +2126,13 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         names.forEach(function(n){ var o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
         if(prevValue && names.indexOf(prevValue) >= 0) sel.value = prevValue;
       };
-      fill('in_inspector', opt.inspectors);
       fill('sr_inspector', opt.inspectors);
       fill('approverSelect', opt.approvers);
+      // 検査員欄は自由入力＋候補表示（datalist）。品質保証課以外の応援の人も入力できるよう
+      // 全従業員名を候補にする（2026-11-05、以前は品質保証課の人だけのselectだった）
+      var dl = document.getElementById('inspectorSuggest');
+      dl.innerHTML = '';
+      (opt.allNames || opt.inspectors).forEach(function(n){ var o = document.createElement('option'); o.value = n; dl.appendChild(o); });
     }).catch(function(){});
     go('home');
   };
