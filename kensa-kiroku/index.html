@@ -42,8 +42,8 @@
     <div class="rail-nav-scroll">
       <button class="nav-btn" data-go="home"><span class="ic">🏠</span><span class="label">ホーム</span></button>
       <button class="nav-btn" data-go="new"><span class="ic">📝</span><span class="label">新規作成</span></button>
-      <button class="nav-btn" data-go="approve"><span class="ic">✅</span><span class="label">承認待ち</span><span class="navbadge" id="navBadgeApprove" hidden></span></button>
       <button class="nav-btn" data-go="zuban"><span class="ic">📁</span><span class="label">図番ページ</span></button>
+      <button class="nav-btn" data-go="approve"><span class="ic">✅</span><span class="label">承認待ち</span><span class="navbadge" id="navBadgeApprove" hidden></span></button>
       <button class="nav-btn" data-go="search"><span class="ic">🔍️</span><span class="label">検索・閲覧</span></button>
       <button class="nav-btn" data-go="guide"><span class="ic">📖</span><span class="label">使い方ガイド</span></button>
       <div class="rail-divider"></div>
@@ -75,6 +75,7 @@
         <div class="stat warn"><span class="n mono" id="statPending">—</span><span class="lbl">承認待ち件数</span></div>
         <div class="stat fail"><span class="n mono" id="statFail">—</span><span class="lbl">今月の不合格件数</span></div>
         <div class="stat ok"><span class="n mono" id="statDone">—</span><span class="lbl">今月の承認完了</span></div>
+        <div class="stat warn"><span class="n mono" id="statTodayPending">—</span><span class="lbl">本日未完了の検査（全体）</span></div>
       </div>
 
       <div class="card">
@@ -697,6 +698,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       document.getElementById('statPending').textContent = d.stats.pending;
       document.getElementById('statFail').textContent = d.stats.failThisMonth;
       document.getElementById('statDone').textContent = d.stats.doneThisMonth;
+      document.getElementById('statTodayPending').textContent = d.stats.todayPending;
       var box = document.getElementById('homeRecent');
       box.innerHTML = '';
       if(!d.recent.length){ box.innerHTML = '<div class="rempty">まだ記録がありません</div>'; return; }
