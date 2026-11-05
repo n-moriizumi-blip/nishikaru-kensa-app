@@ -136,6 +136,10 @@ body{
   display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:3px 9px;
   border-radius:99px; white-space:nowrap;
 }
+/* pillWrap常にピル＋リンク欄の2段構成にし、rrowLinksの高さを常に確保することで、
+   PDF/成績書リンクがある行と無い行とでピルの縦位置がずれないようにする */
+.pillWrap{display:flex; flex-direction:column; align-items:flex-end; gap:4px}
+.rrowLinks{display:flex; gap:7px; min-height:14px}
 .pill.progress{background:var(--warn-soft); color:var(--warn)}
 .pill.waiting{background:#dde6f0; color:#2a5a8a}
 .pill.approved{background:var(--ok-soft); color:var(--ok)}

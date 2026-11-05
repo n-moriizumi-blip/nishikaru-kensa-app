@@ -218,12 +218,12 @@
           <label class="fl">NG・限度見本の有無<select id="sp_NG・限度見本の有無" disabled><option value="">（未設定）</option><option>有</option><option>無</option></select></label>
           <label class="fl">カット品<select id="sp_カット品" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
           <label class="fl">テストピース<select id="sp_テストピース" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
+          <label class="fl">外観ランク<select id="sp_外観ランク" disabled><option value="">（未設定）</option><option>A</option><option>B</option><option>C</option><option>D</option></select></label>
+          <label class="fl">処理検査成績書添付<select id="sp_処理検査成績書添付" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
           <label class="fl">借用ゲージ等<select id="gaugeHas" disabled><option value="">（未設定）</option><option>無</option><option>有</option></select></label>
           <label class="fl" id="gaugeTypeWrap">ゲージの種類<input type="text" id="sp_借用ゲージの種類" disabled></label>
           <label class="fl">キーエンス測定<select id="keyenceHas" disabled><option value="">（未設定）</option><option>無</option><option>有</option></select></label>
           <label class="fl" id="keyenceProgWrap" hidden>プログラム名<input type="text" id="sp_キーエンスプログラム名" disabled></label>
-          <label class="fl">外観ランク<select id="sp_外観ランク" disabled><option value="">（未設定）</option><option>A</option><option>B</option><option>C</option><option>D</option></select></label>
-          <label class="fl">処理検査成績書添付<select id="sp_処理検査成績書添付" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
         </div>
         <div style="padding:0 16px 16px; display:flex; justify-content:flex-end; gap:8px">
           <button class="btn btn-ghost btn-sm" id="editShipping">✏️ 編集する</button>
@@ -293,8 +293,8 @@
           <label class="fl">ロット数<input type="text" id="in_lotCount"></label>
           <label class="fl">抜取数<input type="text" id="in_sampleCount" title="ロット数から自動計算されます（直接変更も可能）"></label>
           <label class="fl">材質/ロットNo.<input type="text" id="in_material"></label>
-          <label class="fl">ロットNo.<input type="text" id="in_lotNo"></label>
           <label class="fl">処理<input type="text" id="in_process"></label>
+          <label class="fl">ロットNo.<input type="text" id="in_lotNo"></label>
           <label class="fl">受注・客先番号<input type="text" id="in_orderNo"></label>
           <label class="fl" style="grid-column:1 / -1">備考<textarea id="in_note" placeholder="任意" rows="2"></textarea></label>
         </div>
@@ -711,18 +711,19 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   // （{recordId, pdfFileId, certCount}。2026-11-05、一覧から直接開けるようにする機能）
   function rrow_(zu, meta, stateLabel, date, onClick, extra){
     var row = document.createElement('div'); row.className = 'rrow';
+    // pillWrapは承認済み・それ以外どの行でも常に同じ構造（ピル＋リンク欄）にしておく。
+    // リンク欄をextraがある行にだけ足すと、ピルの入れ物の高さが行ごとに変わってしまい、
+    // 行全体の中央揃えのせいでピルの縦位置がずれて見える不具合があった(2026-11-05修正)。
+    // リンク欄の高さを常に確保しておくことで、中身の有無に関わらずピルの位置を揃える
     row.innerHTML = '<div><div class="zu"></div><div class="meta"></div></div>'+
-      '<div><span class="pill"></span></div><div class="date"></div><div class="arrow">›</div>';
+      '<div class="pillWrap"><span class="pill"></span><div class="rrowLinks"></div></div><div class="date"></div><div class="arrow">›</div>';
     row.querySelector('.zu').textContent = zu;
     row.querySelector('.meta').textContent = meta;
     var p = row.querySelector('.pill'); p.textContent = stateLabel; p.className = 'pill ' + (pill[stateLabel] || '');
     row.querySelector('.date').textContent = date;
     if(onClick) row.addEventListener('click', onClick);
     if(extra && (extra.pdfFileId || extra.certCount)){
-      var pillWrap = row.querySelector('.pill').parentNode;
-      pillWrap.style.cssText = 'display:flex; flex-direction:column; align-items:flex-end; gap:4px';
-      var links = document.createElement('div');
-      links.style.cssText = 'display:flex; gap:7px';
+      var links = row.querySelector('.rrowLinks');
       if(extra.pdfFileId){
         var pdfA = document.createElement('a');
         pdfA.href = 'https://drive.google.com/file/d/' + extra.pdfFileId + '/view';
@@ -742,7 +743,6 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         });
         links.appendChild(certA);
       }
-      pillWrap.appendChild(links);
     }
     return row;
   }
