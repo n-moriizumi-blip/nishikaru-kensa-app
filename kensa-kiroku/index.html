@@ -364,6 +364,8 @@
           <label class="fl">製造番号<input type="text" id="sr_mfgNo" placeholder="例: 24A-0981" class="mono"></label>
           <label class="fl">検査員<select id="sr_inspector"><option value="">全員</option></select></label>
           <label class="fl">承認状況<select id="sr_state"><option value="">すべて</option><option>承認済み</option><option>承認待ち</option><option>記入中</option><option>差し戻し</option></select></label>
+          <label class="fl">検査日（開始）<input type="date" id="sr_from"></label>
+          <label class="fl">検査日（終了）<input type="date" id="sr_to"></label>
         </div>
         <div style="padding:0 16px 16px"><button class="btn btn-accent btn-sm" id="searchBtn">検索</button></div>
       </div>
@@ -2068,7 +2070,8 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     var zuban = document.getElementById('sr_zuban').value;
     var filter = {
       zuban: zuban, mfgNo: document.getElementById('sr_mfgNo').value,
-      inspector: document.getElementById('sr_inspector').value, state: document.getElementById('sr_state').value
+      inspector: document.getElementById('sr_inspector').value, state: document.getElementById('sr_state').value,
+      from: document.getElementById('sr_from').value, to: document.getElementById('sr_to').value
     };
     run('searchRecords', filter).then(function(list){
       document.getElementById('searchResultCount').textContent = '結果 ' + list.length + '件';
