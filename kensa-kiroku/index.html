@@ -278,6 +278,7 @@
         <div style="display:flex; gap:8px; flex-wrap:wrap">
           <a class="btn btn-ghost btn-sm" id="viewPdfBtn" href="#" target="_blank" hidden>📄 PDFを見る</a>
           <button class="btn btn-ghost btn-sm" id="peekZubanPage">📁 図番ページを見る</button>
+          <button class="btn btn-ghost btn-sm" id="editTmplFromInspect">✏️ テンプレートを編集する</button>
           <span class="note" id="autoSaveIndicator" style="align-self:center"></span>
           <button class="btn btn-ghost" id="saveDraftBtn">下書き保存</button>
           <button class="btn btn-ghost btn-sm" id="deleteDraftBtn" hidden style="color:var(--fail)">🗑 この下書きを削除</button>
@@ -1523,6 +1524,26 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     if(!state.inspect){ toast('図番が選ばれていません'); return; }
     state.returnToInspect = true;
     openZubanPage(state.inspect.zuban);
+  });
+  // 検査入力画面からもテンプレートを編集できるようにする（2026-11-05）。テンプレート保存後は
+  // 図番ページに戻る作り（saveTmpl）のため、項目が変わって古い入力中の表と食い違わないよう、
+  // 編集に移る前に記入中の内容を下書き保存しておく（新規・未保存のまま押した場合も同様）。
+  // state.inspect.infoは記録を開いた経路によっては品名・材質・処理を持っていないことが
+  // あるため（下書きの続き等）、必ずgetZubanPageで最新の完全な情報を取り直してから開く
+  document.getElementById('editTmplFromInspect').addEventListener('click', function(){
+    if(!state.inspect){ toast('図番が選ばれていません'); return; }
+    var zuban = state.inspect.zuban;
+    function proceed(){
+      run('getZubanPage', zuban).then(function(res){
+        if(!res.found){ toast('図番情報が読み込めませんでした'); return; }
+        openTemplateEditorForZuban(res.info);
+      }).catch(errToast);
+    }
+    if(!state.inspectEditable){ proceed(); return; }
+    run('saveInspectionRecord', collectInspectPayload_(), '記入中').then(function(res){
+      state.inspect.recordId = res.recordId;
+      proceed();
+    }).catch(errToast);
   });
 
   // 既存の記録（下書き・差し戻し・承認待ち・承認済み）を検査入力画面で開く
