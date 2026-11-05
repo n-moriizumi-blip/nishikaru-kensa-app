@@ -1200,6 +1200,15 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   }
   wireConditionalReveal('gaugeHas', 'gaugeTypeWrap', '有');
   wireConditionalReveal('keyenceHas', 'keyenceProgWrap', '有');
+  // キーエンス測定を「有」にしたとき、プログラム名が未入力なら「得意先名 図番」を
+  // 初期値として自動で入れる（2026-11-06。既に何か入力済みの場合は上書きしない）
+  document.getElementById('keyenceHas').addEventListener('change', function(){
+    if(this.value !== '有' || !state.zubanPage) return;
+    var progEl = document.getElementById('sp_キーエンスプログラム名');
+    if(progEl.value.trim()) return;
+    var customer = (state.zubanPage.info && state.zubanPage.info.customer) || '';
+    progEl.value = (customer ? customer + ' ' : '') + state.zubanPage.zuban;
+  });
 
   // 出荷仕様は誤操作防止のため、「編集する」を押すまで変更できない
   var SHIPPING_FIELD_IDS = ['sp_検査記録の添付','sp_ミルシート','sp_トレー梱包の種類','sp_NG・限度見本の有無','sp_カット品','sp_テストピース','gaugeHas','sp_借用ゲージの種類','keyenceHas','sp_キーエンスプログラム名','sp_外観ランク','sp_処理検査成績書添付','sp_ロットNo.の入力','sp_受注・客先番号の入力'];
