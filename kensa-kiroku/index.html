@@ -597,7 +597,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   // zubanPage: 図番ページで今表示している図番（閲覧だけなら検査入力の状態を壊さない）
   // inspect: 検査入力で今作業中のセッション（新規・下書きの続き・差し戻しの再編集・承認待ちの確認・承認済みの閲覧）
   // returnToInspect: 図番ページを「入力中の検査の確認のため」開いたときだけtrue（trueの間だけ、確認して戻ると同じセッションに戻る）
-  var state = { zubanPage: null, inspect: null, returnToInspect: false, me: null, editingQlId: null, inspectEditable: false };
+  var state = { zubanPage: null, inspect: null, returnToInspect: false, returnToInspectAfterTmpl: false, me: null, editingQlId: null, inspectEditable: false };
   var allZubanNames = [];
   function isApprover_(){
     return !!(state.me && (state.me.role || '').indexOf('承認者') >= 0);
@@ -1106,6 +1106,11 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   // テンプレート編集を「図番ページの✏️テンプレートを編集する」から開いた場合は、
   // キャンセルで新規作成の選択画面ではなく元の図番ページへ戻す
   document.getElementById('cancelTmpl').addEventListener('click', function(){
+    if(state.returnToInspectAfterTmpl && state.inspect){
+      state.returnToInspectAfterTmpl = false;
+      go('inspect');
+      return;
+    }
     if(state.zubanPage && state.zubanPage.zuban){ openZubanPage(state.zubanPage.zuban); }
     else { go('new'); }
   });
@@ -1147,9 +1152,32 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       material: document.getElementById('newZubanMaterial').value, process: document.getElementById('newZubanProcess').value, items: items
     }).then(function(){
       toast('図番 '+zuban+' のテンプレートを保存しました。');
+      if(state.returnToInspectAfterTmpl && state.inspect && state.inspect.zuban === zuban){
+        state.returnToInspectAfterTmpl = false;
+        returnToInspectAfterTemplateSave_(zuban);
+        return;
+      }
       state.returnToInspect = false; openZubanPage(zuban);
     }).catch(errToast);
   });
+  // 検査入力画面からテンプレートを編集・保存した場合はそのまま検査入力画面へ戻る。
+  // 項目が変わっている可能性があるため、保存直後の最新テンプレートで表を組み直し、
+  // 既に入力済みの実測値は№が一致する項目にそのまま引き継ぐ（2026-11-05）
+  function returnToInspectAfterTemplateSave_(zuban){
+    var prefill = collectCurrentMeasurements_();
+    run('getZubanPage', zuban).then(function(res){
+      if(res.found){
+        state.inspect.info.items = res.info.items;
+        state.inspect.info.material = res.info.material;
+        state.inspect.info.process = res.info.process;
+        state.inspect.info.shipping = res.info.shipping;
+      }
+      go('inspect');
+      var sampleCount = parseInt(document.getElementById('in_sampleCount').value, 10) || DEFAULT_SAMPLE_COUNT;
+      buildItemsTable(state.inspect.info.items, sampleCount, prefill, !state.inspectEditable);
+      setupCertCard_();
+    }).catch(errToast);
+  }
 
   /* ---------- 図番ページ ---------- */
   var SHIPPING_SELECT_IDS = ['検査記録の添付','ミルシート','トレー梱包の種類','NG・限度見本の有無','カット品','テストピース','外観ランク','処理検査成績書添付'];
@@ -1536,6 +1564,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     function proceed(){
       run('getZubanPage', zuban).then(function(res){
         if(!res.found){ toast('図番情報が読み込めませんでした'); return; }
+        state.returnToInspectAfterTmpl = true;
         openTemplateEditorForZuban(res.info);
       }).catch(errToast);
     }
