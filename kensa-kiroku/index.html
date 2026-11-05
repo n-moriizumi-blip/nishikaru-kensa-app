@@ -2125,7 +2125,11 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       dl.innerHTML = '';
       (opt.allNames || opt.inspectors).forEach(function(n){ var o = document.createElement('option'); o.value = n; dl.appendChild(o); });
     }).catch(function(){});
-    go('home');
+    // Google Chat通知の「承認待ちタブを開く」リンク等、URLの?view=で直接タブを指定できる
+    // ようにする（2026-11-05）。state依存の画面（inspect等）は対象外、安全な一覧画面のみ許可
+    var requestedView = new URLSearchParams(location.search).get('view');
+    var allowedDeepLinkViews = ['home', 'new', 'approve', 'search', 'guide'];
+    go(allowedDeepLinkViews.indexOf(requestedView) >= 0 ? requestedView : 'home');
   };
 
   // サインイン失敗時（ドメイン外のアカウント等）、GAS側からエラーが返ってきたら
