@@ -525,6 +525,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     saveShippingSpec: { method:'POST', fields:['zuban','data'] },
     addQualityLog: { method:'POST', fields:['zuban','data'] },
     updateQualityLog: { method:'POST', fields:['id','data'] },
+    deleteQualityLog: { method:'POST', fields:['id'] },
     saveZubanTemplate: { method:'POST', fields:['data'] },
     saveInspectionRecord: { method:'POST', fields:['payload','targetState'] },
     deleteDraftRecord: { method:'POST', fields:['recordId'] },
@@ -1203,8 +1204,8 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var qlBox = document.getElementById('qualityLogList'); qlBox.innerHTML = '';
       if(!res.info.qualityLog.length){ qlBox.innerHTML = '<div class="rempty">まだ記録がありません</div>'; }
       res.info.qualityLog.forEach(function(q){
-        var row = document.createElement('div'); row.className = 'rrow'; row.style.gridTemplateColumns = '86px 1fr 60px 32px';
-        row.innerHTML = '<div class="date"></div><div><div class="zu" style="font-size:12.5px"></div><div class="qlContent"></div><span class="qlBy"></span><div class="qlPhotos" style="margin-top:4px"></div></div><div></div><button type="button" class="rmBtn qlEditBtn" title="編集する">✏️</button>';
+        var row = document.createElement('div'); row.className = 'rrow'; row.style.gridTemplateColumns = '86px 1fr 32px 32px';
+        row.innerHTML = '<div class="date"></div><div><div class="zu" style="font-size:12.5px"></div><div class="qlContent"></div><span class="qlBy"></span><div class="qlPhotos" style="margin-top:4px"></div></div><button type="button" class="rmBtn qlDeleteBtn" title="削除する">🗑</button><button type="button" class="rmBtn qlEditBtn" title="編集する">✏️</button>';
         // 日付は年まで表示する（以前はMM/DDのみで年をまたぐと紛らわしかった）
         row.querySelector('.date').textContent = q['タイムスタンプ'].slice(0, 10).replace(/-/g, '/');
         row.querySelector('.zu').textContent = q['部署'] || '';
@@ -1230,6 +1231,13 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
           photoBox.appendChild(a);
         });
         row.querySelector('.qlEditBtn').addEventListener('click', function(){ openQlForm_(q['投稿ID'], q['内容'], shared, q['写真URL']); });
+        row.querySelector('.qlDeleteBtn').addEventListener('click', function(){
+          if(!confirm('この品質情報を削除しますか？この操作は取り消せません。')) return;
+          run('deleteQualityLog', q['投稿ID']).then(function(){
+            toast('削除しました。');
+            openZubanPage(state.zubanPage.zuban);
+          }).catch(errToast);
+        });
         qlBox.appendChild(row);
       });
 
@@ -1792,9 +1800,14 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var max = parseFloat(tr.dataset.max), min = parseFloat(tr.dataset.min);
       tr.querySelectorAll('td.meas-cell').forEach(function(td){
         td.classList.remove('pass','ng');
-        if(!hasBase) return;
         var s = td.querySelector('input.meas').value.trim();
         if(!s || isReferenceValue(s)) return;
+        // 「OK」「NG」（大文字小文字問わず）はそのまま合格・不合格として扱う(2026-11-05追加)。
+        // 数値の公差と違って基準値(hasBase)の有無を問わない
+        var upper = s.toUpperCase();
+        if(upper === 'OK'){ td.classList.add('pass'); filled++; return; }
+        if(upper === 'NG'){ td.classList.add('ng'); filled++; ngCount++; return; }
+        if(!hasBase) return;
         var v = parseTol(s);
         if(v === null) return;
         filled++;
