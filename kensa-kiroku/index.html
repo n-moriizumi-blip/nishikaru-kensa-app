@@ -238,8 +238,8 @@
         <div id="qualityLogForm" hidden style="padding:16px; display:flex; flex-direction:column; gap:10px; border-bottom:1px solid var(--border)">
           <b id="qlFormTitle" style="font-size:12.5px">記録を追加</b>
           <div>
-            <input type="file" id="qlPhotoInput" accept="image/*" multiple hidden>
-            <button type="button" class="btn btn-ghost btn-sm" id="qlPhotoBtn">📷 写真を添付</button>
+            <input type="file" id="qlPhotoInput" accept="image/*,application/pdf" multiple hidden>
+            <button type="button" class="btn btn-ghost btn-sm" id="qlPhotoBtn">📷 写真・PDFを添付</button>
             <span class="note" id="qlPhotoLabel" style="margin-left:8px"></span>
             <div id="qlPhotoThumbs" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px"></div>
           </div>
@@ -278,7 +278,8 @@
           <a class="btn btn-ghost btn-sm" id="viewPdfBtn" href="#" target="_blank" hidden>📄 PDFを見る</a>
           <button class="btn btn-ghost btn-sm" id="peekZubanPage">📁 図番ページを見る</button>
           <span class="note" id="autoSaveIndicator" style="align-self:center"></span>
-          <button class="btn btn-ghost" id="saveDraftBtn">下書き保存して戻る</button>
+          <button class="btn btn-ghost" id="saveDraftBtn">下書き保存</button>
+          <button class="btn btn-ghost btn-sm" id="deleteDraftBtn" hidden style="color:var(--fail)">🗑 この下書きを削除</button>
         </div>
       </div>
       <div class="note" id="inspectModeNote" hidden></div>
@@ -411,7 +412,7 @@
         <div class="card-head"><h2>検査入力</h2></div>
         <div style="padding:16px" class="guideBody">
           <p>抜取数はロット数から自動計算される（直接入力で上書きも可能）。検査項目の列1〜Nは実測値のサンプル番号（横にスクロールできる）。公差を外れた値は赤で表示され、1件でも範囲外があれば判定は不合格になる。</p>
-          <p>記入途中でも「下書き保存して戻る」で一旦中断できる（自動保存もされる）。記入が終わったら承認依頼先を選んで「承認依頼を送信」。</p>
+          <p>記入途中でも「下書き保存」でいつでも保存できる（自動保存もされる、保存しても画面はそのまま）。記入が終わったら承認依頼先を選んで「承認依頼を送信」。</p>
           <p>出荷仕様で「処理検査成績書添付」が「必要」の図番は、検査項目の下に専用のカードが出て、熱処理・メッキ等の外部成績書（画像・PDF）を複数添付できる。</p>
         </div>
       </div>
@@ -512,6 +513,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     scanMfgNo: { method:'GET', fields:['mfgNo'] },
     getApprovalList: { method:'GET', fields:[] },
     getRecord: { method:'GET', fields:['recordId'] },
+    getCertificates: { method:'GET', fields:['recordId'] },
     searchRecords: { method:'GET', fields:['filter'] },
     searchOldPdfs: { method:'GET', fields:['zuban'] },
     listZubanNames: { method:'GET', fields:[] },
@@ -525,6 +527,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     updateQualityLog: { method:'POST', fields:['id','data'] },
     saveZubanTemplate: { method:'POST', fields:['data'] },
     saveInspectionRecord: { method:'POST', fields:['payload','targetState'] },
+    deleteDraftRecord: { method:'POST', fields:['recordId'] },
     approveRecord: { method:'POST', fields:['recordId','customerFolderOverride','zubanFolderOverride'] },
     uploadCertificate: { method:'POST', fields:['recordId','zuban','filename','mimeType','dataBase64','customerFolderOverride','zubanFolderOverride'] },
     deleteCertificate: { method:'POST', fields:['recordId','fileId'] },
@@ -699,11 +702,13 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       d.recent.forEach(function(r){
         box.appendChild(rrow_(r.zuban, metaLine_(r), r.state, r.date, function(){
           openAnyRecord(r.recordId);
-        }));
+        }, { recordId: r.recordId, pdfFileId: r.pdfFileId, certCount: r.certCount }));
       });
     }).catch(errToast);
   }
-  function rrow_(zu, meta, stateLabel, date, onClick){
+  // extra: 承認済み行だけ、PDF・処理検査成績書への直接リンクを添える任意情報
+  // （{recordId, pdfFileId, certCount}。2026-11-05、一覧から直接開けるようにする機能）
+  function rrow_(zu, meta, stateLabel, date, onClick, extra){
     var row = document.createElement('div'); row.className = 'rrow';
     row.innerHTML = '<div><div class="zu"></div><div class="meta"></div></div>'+
       '<div><span class="pill"></span></div><div class="date"></div><div class="arrow">›</div>';
@@ -712,7 +717,63 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     var p = row.querySelector('.pill'); p.textContent = stateLabel; p.className = 'pill ' + (pill[stateLabel] || '');
     row.querySelector('.date').textContent = date;
     if(onClick) row.addEventListener('click', onClick);
+    if(extra && (extra.pdfFileId || extra.certCount)){
+      var pillWrap = row.querySelector('.pill').parentNode;
+      pillWrap.style.cssText = 'display:flex; flex-direction:column; align-items:flex-end; gap:4px';
+      var links = document.createElement('div');
+      links.style.cssText = 'display:flex; gap:7px';
+      if(extra.pdfFileId){
+        var pdfA = document.createElement('a');
+        pdfA.href = 'https://drive.google.com/file/d/' + extra.pdfFileId + '/view';
+        pdfA.target = '_blank'; pdfA.rel = 'noopener'; pdfA.title = '検査記録PDFを開く';
+        pdfA.textContent = '📄'; pdfA.style.cssText = 'text-decoration:none; font-size:14px';
+        pdfA.addEventListener('click', function(e){ e.stopPropagation(); });
+        links.appendChild(pdfA);
+      }
+      if(extra.certCount){
+        var certA = document.createElement('a');
+        certA.href = '#'; certA.title = '処理検査成績書を開く（' + extra.certCount + '件）';
+        certA.textContent = '📎' + extra.certCount;
+        certA.style.cssText = 'text-decoration:none; font-size:12px; color:var(--ink-dim)';
+        certA.addEventListener('click', function(e){
+          e.stopPropagation(); e.preventDefault();
+          run('getCertificates', extra.recordId).then(function(certs){ showCertMenu_(certA, certs); }).catch(errToast);
+        });
+        links.appendChild(certA);
+      }
+      pillWrap.appendChild(links);
+    }
     return row;
+  }
+  // 📎アイコンの近くに成績書ファイルへのリンク一覧を小さく表示する（複数ファイルを
+  // ポップアップブロックに引っかからず開けるよう、まとめて自動で開くのではなく
+  // 1つずつ人がタップする形にする）
+  function closeMiniMenu_(){ var m = document.getElementById('miniMenu'); if(m) m.remove(); }
+  document.addEventListener('click', closeMiniMenu_);
+  function showCertMenu_(anchorEl, certs){
+    closeMiniMenu_();
+    var menu = document.createElement('div');
+    menu.id = 'miniMenu';
+    menu.style.cssText = 'position:fixed; z-index:200; background:var(--surface); border:1px solid var(--border-strong); border-radius:8px; box-shadow:var(--shadow); padding:6px; min-width:170px; max-width:260px';
+    var rect = anchorEl.getBoundingClientRect();
+    menu.style.top = (rect.bottom + 4) + 'px';
+    menu.style.left = Math.max(8, rect.right - 220) + 'px';
+    if(!certs.length){
+      var empty = document.createElement('div');
+      empty.textContent = '成績書がありません';
+      empty.style.cssText = 'padding:6px 8px; font-size:12px; color:var(--ink-faint)';
+      menu.appendChild(empty);
+    }
+    certs.forEach(function(c){
+      var a = document.createElement('a');
+      a.href = 'https://drive.google.com/file/d/' + c.fileId + '/view';
+      a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = '📎 ' + (c.name || '成績書');
+      a.style.cssText = 'display:block; padding:6px 8px; font-size:12.5px; color:var(--ink); text-decoration:none; border-radius:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis';
+      a.addEventListener('click', function(e){ e.stopPropagation(); });
+      menu.appendChild(a);
+    });
+    document.body.appendChild(menu);
   }
   // 一覧の2行目（得意先・製造番号・検査員・承認者をまとめて表示）
   function metaLine_(r){
@@ -1177,7 +1238,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       res.pastRecords.forEach(function(r){
         pastBox.appendChild(rrow_('📄 ' + r.date + ' 検査記録', metaLine_({ customer: r.customer, mfgNo: r.mfgNo, inspector: r.inspector, approver: r.approver }), '承認済み', r.date, function(){
           openAnyRecord(r.recordId);
-        }));
+        }, { recordId: r.recordId, pdfFileId: r.pdfFileId, certCount: r.certCount }));
       });
     }).catch(errToast);
   }
@@ -1193,6 +1254,10 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       toast('出荷仕様を保存しました');
       setShippingEditable_(false);
       document.getElementById('qlRankFixed').textContent = data['外観ランク'] || '-';
+      // state.zubanPage.infoを更新しないと、保存直後に「検査を始める」で遷移した際に
+      // 古い出荷仕様（処理検査成績書添付の要否など）が使われてしまう(2026-11-05修正、
+      // スーパーリロードしないと反映されない不具合の原因)
+      if(state.zubanPage.info) state.zubanPage.info.shipping = data;
     }).catch(errToast);
   });
 
@@ -1290,10 +1355,17 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       files.forEach(function(file, idx){
         chain = chain.then(function(){
           label.textContent = files.length > 1 ? 'アップロード中…（' + (idx+1) + '/' + files.length + '）' : 'アップロード中…';
-          return resizeImageForUpload_(file).then(function(uploadBlob){
+          // PDFは画像ではないのでリサイズ処理(resizeImageForUpload_、canvas描画が前提)を
+          // 通さず、そのままアップロードする(2026-11-05、品質情報もPDF添付に対応)
+          var isPdf = file.type === 'application/pdf';
+          var prep = isPdf ? Promise.resolve(file) : resizeImageForUpload_(file);
+          return prep.then(function(uploadBlob){
             return fileToBase64_(uploadBlob).then(function(base64){
-              var filename = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
-              return run('uploadQualityPhoto', zuban, filename, 'image/jpeg', base64, folder.customerOverride, folder.zubanOverride);
+              var filename = isPdf
+                ? (file.name || 'document').replace(/\.[^.]+$/, '') + '.pdf'
+                : (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+              var mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
+              return run('uploadQualityPhoto', zuban, filename, mimeType, base64, folder.customerOverride, folder.zubanOverride);
             });
           }).then(function(res){ state.qlPhotoUrls.push(res.url); renderQlPhotoThumbs_(); });
         });
@@ -1584,6 +1656,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.getElementById('reviewActions').style.display = canReview ? 'flex' : 'none';
     document.getElementById('reopenActions').style.display = canReopen ? 'flex' : 'none';
     document.getElementById('saveDraftBtn').style.display = editable ? '' : 'none';
+    document.getElementById('deleteDraftBtn').hidden = !(mode === 'edit' && record && record['状態'] === '記入中');
     document.getElementById('sendApproval').textContent = (mode === 'edit' && record && record['状態'] === '差し戻し') ? '修正して再送信' : '承認依頼を送信';
     var note = document.getElementById('inspectModeNote');
     if(mode === 'view'){
@@ -1765,6 +1838,14 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     run('saveInspectionRecord', payload, '記入中').then(function(res){
       state.inspect.recordId = res.recordId;
       toast('下書きを保存しました。');
+    }).catch(errToast);
+  });
+  document.getElementById('deleteDraftBtn').addEventListener('click', function(){
+    if(!state.inspect || !state.inspect.recordId) return;
+    if(!confirm('この下書きを削除しますか？この操作は取り消せません。')) return;
+    run('deleteDraftRecord', state.inspect.recordId).then(function(){
+      toast('下書きを削除しました。');
+      state.inspect = null;
       go('home');
     }).catch(errToast);
   });
@@ -1886,7 +1967,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       list.forEach(function(r){
         box.appendChild(rrow_('📄 ' + r.zuban, metaLine_(r), r.state, r.date, function(){
           openAnyRecord(r.recordId);
-        }));
+        }, { recordId: r.recordId, pdfFileId: r.pdfFileId, certCount: r.certCount }));
       });
     }).catch(errToast);
     // 旧システム（検査記録DX化）のPDFは図番検索の時だけ合わせて表示する
