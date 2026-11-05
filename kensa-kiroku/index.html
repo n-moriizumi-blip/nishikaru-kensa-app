@@ -53,8 +53,8 @@
       <a class="nav-btn" href="../app/qr-inspection/?func=inspectionHold" target="_blank" rel="noopener"><span class="ic">⏸️</span><span class="label">検査開始前保留</span></a>
       <div class="rail-divider"></div>
       <div class="rail-section-label">進捗管理ツール</div>
-      <a class="nav-btn" href="https://script.google.com/a/macros/nishikaru.co.jp/s/AKfycbwynrBRR5A39TL53mbN0f3XFpiFwVvxQf_yj-_G8fOjFFeMP_qDSqDXR6DPek6NdKqt/exec" target="_blank" rel="noopener"><span class="ic">📅</span><span class="label">検査スケジュール表</span></a>
-      <a class="nav-btn" href="https://script.google.com/a/macros/nishikaru.co.jp/s/AKfycbxcgVwmRqZcnqcTRPqbQlOL1Cb-mlZmApNLTVVWyLKqY5eTImozyupzzAIPNUpn8CRa/exec" target="_blank" rel="noopener"><span class="ic">📊</span><span class="label">進捗サーチ</span></a>
+      <a class="nav-btn" id="navSchedule" href="https://script.google.com/a/macros/nishikaru.co.jp/s/AKfycbwynrBRR5A39TL53mbN0f3XFpiFwVvxQf_yj-_G8fOjFFeMP_qDSqDXR6DPek6NdKqt/exec" target="_blank" rel="noopener"><span class="ic">📅</span><span class="label">検査スケジュール表</span></a>
+      <a class="nav-btn" id="navSearch2" href="https://script.google.com/a/macros/nishikaru.co.jp/s/AKfycbxcgVwmRqZcnqcTRPqbQlOL1Cb-mlZmApNLTVVWyLKqY5eTImozyupzzAIPNUpn8CRa/exec" target="_blank" rel="noopener"><span class="ic">📊</span><span class="label">進捗サーチ</span></a>
     </div>
     <div class="rail-user">
       <div class="av" id="railAv">?</div>
@@ -680,6 +680,20 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   // ロゴ部分をタップしても開閉できるようにする
   document.getElementById('railBrand').addEventListener('click', function(){
     document.getElementById('railNav').classList.toggle('pinned');
+  });
+  // タブレットにインストール済みのPWA（検査記録ポータル）内からtarget="_blank"で外部リンクを
+  // 開いても、スタンドアロン表示のPWAでは別ウィンドウにならず同じ画面内で遷移してしまうことが
+  // ある。AndroidではIntent URLでChromeを明示的に指定して起動することで回避する
+  // （2026-11-05、検査スケジュール表・進捗サーチが同じウィンドウで開いてしまう報告への対応。
+  // iOS/デスクトップはtarget="_blank"の標準動作のままでよいため何もしない）
+  function openInChromeIfAndroid_(e){
+    if (!/Android/i.test(navigator.userAgent)) return;
+    e.preventDefault();
+    var url = this.href.replace(/^https?:\/\//, '');
+    window.location.href = 'intent://' + url + '#Intent;scheme=https;package=com.android.chrome;end';
+  }
+  ['navSchedule', 'navSearch2'].forEach(function(id){
+    document.getElementById(id).addEventListener('click', openInChromeIfAndroid_);
   });
 
   /* ---------- ホーム ---------- */
@@ -1951,6 +1965,19 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       materialEl.focus();
       return;
     }
+    // ロットNo.・受注・客先番号も未入力のまま承認依頼を送れないようにする(2026-11-05)
+    var lotNoEl = document.getElementById('in_lotNo');
+    if(!lotNoEl.value.trim()){
+      toast('ロットNo.を入力してください。');
+      lotNoEl.focus();
+      return;
+    }
+    var orderNoEl = document.getElementById('in_orderNo');
+    if(!orderNoEl.value.trim()){
+      toast('受注・客先番号を入力してください。');
+      orderNoEl.focus();
+      return;
+    }
     var payload = collectInspectPayload_();
     payload.approverName = document.getElementById('approverSelect').value;
     run('saveInspectionRecord', payload, '承認待ち').then(function(){
@@ -2079,9 +2106,15 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     // 検査員・承認依頼先の選択肢も先読み（組織図マスタ・役割シートから。新しく品質保証課に
     // 入った人がいてもコードを直さずに選択肢に出るようにするため）
     run('listPeopleOptions').then(function(opt){
+      // IDトークンの裏での自動更新（45分おき）のたびにstartApp()が再実行されるため、
+      // 追加前に必ずクリアする（これが無いと開きっぱなしで選択肢が重複していく不具合があった、
+      // 2026-11-05修正）
       var fill = function(selId, names){
         var sel = document.getElementById(selId);
+        var prevValue = sel.value; // 作り直しの前に選択中の値を保持（入力中にトークン自動更新が
+        sel.innerHTML = '';        // 走っても、選んでいた検査員・承認依頼先が消えないようにする）
         names.forEach(function(n){ var o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+        if(prevValue && names.indexOf(prevValue) >= 0) sel.value = prevValue;
       };
       fill('in_inspector', opt.inspectors);
       fill('sr_inspector', opt.inspectors);
