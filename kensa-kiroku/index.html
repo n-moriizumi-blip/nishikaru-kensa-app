@@ -701,7 +701,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       box.innerHTML = '';
       if(!d.recent.length){ box.innerHTML = '<div class="rempty">まだ記録がありません</div>'; return; }
       d.recent.forEach(function(r){
-        box.appendChild(rrow_(r.zuban, metaLine_(r), r.state, r.date, function(){
+        box.appendChild(rrow_(zuLine_(r.zuban, r.customer), metaLine_(r, false), r.state, r.date, function(){
           openAnyRecord(r.recordId);
         }, { recordId: r.recordId, pdfFileId: r.pdfFileId, certCount: r.certCount }));
       });
@@ -777,13 +777,19 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.body.appendChild(menu);
   }
   // 一覧の2行目（得意先・製造番号・検査員・承認者をまとめて表示）
-  function metaLine_(r){
+  // includeCustomer=false のときは得意先を含めない（zuLine_側に移して一覧の1行目に出す場合）
+  function metaLine_(r, includeCustomer){
     var parts = [];
-    if(r.customer) parts.push('得意先: ' + r.customer);
+    if(includeCustomer !== false && r.customer) parts.push('得意先: ' + r.customer);
     if(r.mfgNo) parts.push('製造番号: ' + r.mfgNo);
     if(r.inspector) parts.push('検査員: ' + r.inspector);
     if(r.approver) parts.push('承認者: ' + r.approver);
     return parts.join('　/　');
+  }
+  // 一覧行の1行目（図番＋得意先、同じ文字サイズ・太さで並べる。2026-11-05、得意先を
+  // 目立たせるため2行目のmetaLine_から1行目に移動した）
+  function zuLine_(zuban, customer){
+    return '図番: ' + zuban + (customer ? '　得意先: ' + customer : '');
   }
 
   /* ---------- 新規作成 ---------- */
@@ -1145,7 +1151,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   /* ---------- 図番ページ ---------- */
   var SHIPPING_SELECT_IDS = ['検査記録の添付','ミルシート','トレー梱包の種類','NG・限度見本の有無','カット品','テストピース','外観ランク','処理検査成績書添付'];
   var tray = document.getElementById('sp_トレー梱包の種類');
-  ['無','G-050-3','5-912052-2(25個)','E-080-1','MT10-4','MT8-2'].forEach(function(v){
+  ['無','G-050-3','5-912052-2(25個)','E-080-1','MT10-4','MT8-2','その他トレー'].forEach(function(v){
     var o = document.createElement('option'); o.value = v; o.textContent = v; tray.appendChild(o);
   });
   function wireConditionalReveal(selectId, wrapId, showValue){
@@ -1911,7 +1917,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       box.innerHTML = '';
       if(!list.length){ box.innerHTML = '<div class="rempty">承認待ちの記録はありません</div>'; return; }
       list.forEach(function(r){
-        box.appendChild(rrow_(r.zuban, metaLine_(r) + '　/　' + r.date + ' 提出', '承認待ち', r.date, function(){ openInspectForRecord(r.recordId); }));
+        box.appendChild(rrow_(zuLine_(r.zuban, r.customer), metaLine_(r, false) + '　/　' + r.date + ' 提出', '承認待ち', r.date, function(){ openInspectForRecord(r.recordId); }));
       });
     }).catch(errToast);
   }
@@ -1978,7 +1984,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var box = document.getElementById('searchResultList'); box.innerHTML = '';
       if(!list.length){ box.innerHTML = '<div class="rempty">該当する記録がありません</div>'; return; }
       list.forEach(function(r){
-        box.appendChild(rrow_('📄 ' + r.zuban, metaLine_(r), r.state, r.date, function(){
+        box.appendChild(rrow_(zuLine_(r.zuban, r.customer), metaLine_(r, false), r.state, r.date, function(){
           openAnyRecord(r.recordId);
         }, { recordId: r.recordId, pdfFileId: r.pdfFileId, certCount: r.certCount }));
       });
