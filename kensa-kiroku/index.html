@@ -1963,10 +1963,29 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       orderNo: document.getElementById('in_orderNo').value, note: document.getElementById('in_note').value, items: items
     };
   }
+  // 自動保存(autoSaveTick)と手動の下書き保存ボタンが同時に走ると、まだ記録IDが
+  // 無い最初の1回だけ、お互いが別々に新規レコードを作ってしまう恐れがある（記録ID確定後は
+  // 両方とも同じ行を更新するだけなので問題ない）。最初の1回だけ進行中の保存を待って同じ
+  // 記録IDに乗せる。2回目以降は待たずに並行実行されるため、通信中が長引くことはない
+  function saveDraftRecord_(payload, caller){
+    if(payload.recordId || !state.inspect._firstSaveInFlight){
+      var p = caller('saveInspectionRecord', payload, '記入中');
+      if(!payload.recordId){
+        state.inspect._firstSaveInFlight = p;
+        var clear = function(){ if(state.inspect) state.inspect._firstSaveInFlight = null; };
+        p.then(clear, clear);
+      }
+      return p;
+    }
+    return state.inspect._firstSaveInFlight.then(function(){
+      payload.recordId = state.inspect.recordId;
+      return caller('saveInspectionRecord', payload, '記入中');
+    });
+  }
   document.getElementById('saveDraftBtn').addEventListener('click', function(){
     if(!state.inspect){ go('home'); return; }
     var payload = collectInspectPayload_();
-    run('saveInspectionRecord', payload, '記入中').then(function(res){
+    saveDraftRecord_(payload, run).then(function(res){
       state.inspect.recordId = res.recordId;
       toast('下書きを保存しました。');
     }).catch(errToast);
@@ -1987,7 +2006,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   function autoSaveTick(){
     if(!state.inspect || !state.inspectEditable) return;
     if(document.getElementById('view-inspect').hidden) return;
-    runSilent('saveInspectionRecord', collectInspectPayload_(), '記入中').then(function(res){
+    saveDraftRecord_(collectInspectPayload_(), runSilent).then(function(res){
       state.inspect.recordId = res.recordId;
       document.getElementById('autoSaveIndicator').textContent = '自動保存済み ' + new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
     }).catch(function(){});
