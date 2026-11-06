@@ -2190,7 +2190,11 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         if(prevValue && names.indexOf(prevValue) >= 0) sel.value = prevValue;
       };
       fill('sr_inspector', opt.inspectors);
-      fill('approverSelect', opt.approvers);
+      // 承認依頼先は山浦さんを既定（プルダウンの先頭）にする（2026-11-06）
+      var approverNames = (opt.approvers || []).slice();
+      var yamauraIdx = approverNames.indexOf('山浦 由紀');
+      if(yamauraIdx > 0){ approverNames.splice(yamauraIdx, 1); approverNames.unshift('山浦 由紀'); }
+      fill('approverSelect', approverNames);
       // 検査員欄は自由入力＋候補表示（datalist）。品質保証課以外の応援の人も入力できるよう
       // 全従業員名を候補にする（2026-11-05、以前は品質保証課の人だけのselectだった）
       var dl = document.getElementById('inspectorSuggest');
