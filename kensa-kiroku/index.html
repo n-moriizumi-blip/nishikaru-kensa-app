@@ -1887,7 +1887,22 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   // itemsBody自体は組み直しのたびに中身だけ入れ替わる（要素そのものは同じ）ので、
   // リスナーはここで1回だけ登録する（buildItemsTableの中で毎回付けると、呼ぶたびに
   // 重複して増えてしまう）
-  document.getElementById('itemsBody').addEventListener('input', function(e){ if(e.target.classList.contains('meas')) judge(); });
+  document.getElementById('itemsBody').addEventListener('input', function(e){
+    if(!e.target.classList.contains('meas')) return;
+    // 実測値に「OK」と入力したら、同じ行の右側（それ以降のサンプル列）にもまとめて
+    // 「OK」を入れる（2026-11-06、同じ結果が続く場合の入力の手間を減らす）
+    if(e.target.value.trim().toUpperCase() === 'OK'){
+      var td = e.target.closest('td.meas-cell');
+      var reachedSelf = false;
+      Array.prototype.forEach.call(td.parentElement.querySelectorAll('td.meas-cell'), function(cellTd){
+        if(cellTd === td){ reachedSelf = true; return; }
+        if(!reachedSelf) return;
+        var input = cellTd.querySelector('input.meas');
+        if(input && !input.readOnly) input.value = 'OK';
+      });
+    }
+    judge();
+  });
 
   function judge(){
     var rows = document.querySelectorAll('#itemsTable tbody tr');
