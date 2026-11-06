@@ -127,8 +127,10 @@ body{
 .rrow .meta{font-size:11.5px; color:var(--ink-dim)}
 /* 状態タグと日付を横に並べて1段にする（2026-11-06、日付欄の右に無駄な余白があった構成を
    整理し、タグの横に大きめの日付を置く形にした） */
-.pillRow{display:flex; align-items:center; gap:8px}
-.rrow .date{font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; color:var(--ink-dim)}
+.pillRow{display:flex; align-items:center; gap:8px; flex-wrap:nowrap}
+/* white-space:nowrapが無いと、行の幅が狭いタブレット等で日付の数字と単位の間で
+   勝手に折り返ってしまう（2026-11-06、実機で確認・修正） */
+.rrow .date{font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; color:var(--ink-dim); white-space:nowrap}
 /* 品質情報の内容本文。.metaより大きく・はっきりした色にして読みやすくする（投稿者名だけ控えめに） */
 .rrow .qlContent{font-size:14px; line-height:1.65; color:var(--ink); margin-top:2px; white-space:pre-wrap}
 .rrow .qlBy{font-size:11.5px; color:var(--ink-dim)}
@@ -142,16 +144,16 @@ body{
 /* pillWrap常にピル＋リンク欄の2段構成にし、rrowLinksの高さを常に確保することで、
    PDF/成績書リンクがある行と無い行とでピルの縦位置がずれないようにする */
 .pillWrap{display:flex; flex-direction:column; align-items:flex-end; gap:4px}
-.rrowLinks{display:flex; gap:2px; min-height:28px}
+.rrowLinks{display:flex; gap:2px; min-height:32px}
 /* PDF・成績書リンク（2026-11-06、タップしにくいとの指摘を受けてヒット領域を拡大。
    絵文字そのものだけでなく周囲の余白ごとタップできるようにする） */
 .rrowLink{
   display:inline-flex; align-items:center; justify-content:center; gap:1px;
-  min-width:30px; min-height:28px; padding:2px 6px; border-radius:8px;
-  font-size:18px; line-height:1; text-decoration:none; color:var(--ink-dim);
+  min-width:34px; min-height:32px; padding:2px 6px; border-radius:8px;
+  font-size:21px; line-height:1; text-decoration:none; color:var(--ink-dim);
 }
 .rrowLink:hover{background:var(--paper)}
-.rrowLink.cert{font-size:13px; font-weight:700}
+.rrowLink.cert{font-size:14.5px; font-weight:700}
 .pill.progress{background:var(--warn-soft); color:var(--warn)}
 .pill.waiting{background:#dde6f0; color:#2a5a8a}
 .pill.approved{background:var(--ok-soft); color:var(--ok)}
