@@ -138,6 +138,7 @@
             <label class="fl">品名<input type="text" id="newZubanName" placeholder="例: シャフト"></label>
             <label class="fl">材質<input type="text" id="newZubanMaterial" placeholder="例: SUS303"></label>
             <label class="fl" style="grid-column:1 / -1">処理（図番ごとに固定・検査入力の処理欄に初期値として入る）<input type="text" id="newZubanProcess" placeholder="例: 真空焼入れHV700以上 → センターレス研磨 → バレル研磨"></label>
+            <label class="fl" style="grid-column:1 / -1">備考初期値（図番ごとに固定・検査入力の備考欄に初期値として入る）<input type="text" id="newZubanNote" placeholder="例: 客先立会検査"></label>
           </div>
         </div>
 
@@ -1092,6 +1093,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.getElementById('newZubanName').value = '';
     document.getElementById('newZubanMaterial').value = '';
     document.getElementById('newZubanProcess').value = '';
+    document.getElementById('newZubanNote').value = '';
     document.getElementById('tmplItemsBody').innerHTML = '';
     addTemplateRow('φ0.02 A', '—', '—', 'M');
     addTemplateRow('', '', '', '');
@@ -1108,6 +1110,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.getElementById('newZubanName').value = info.name || '';
     document.getElementById('newZubanMaterial').value = info.material || '';
     document.getElementById('newZubanProcess').value = info.process || '';
+    document.getElementById('newZubanNote').value = info.defaultNote || '';
     document.getElementById('tmplItemsBody').innerHTML = '';
     (info.items || []).forEach(function(it){ addTemplateRow(it.base, it.max, it.min, it.method, it.remark); });
     if(!info.items || !info.items.length) addTemplateRow('', '', '', '', '');
@@ -1162,7 +1165,8 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     });
     run('saveZubanTemplate', {
       zuban: zuban, customer: document.getElementById('newZubanCustomer').value, name: document.getElementById('newZubanName').value,
-      material: document.getElementById('newZubanMaterial').value, process: document.getElementById('newZubanProcess').value, items: items
+      material: document.getElementById('newZubanMaterial').value, process: document.getElementById('newZubanProcess').value,
+      defaultNote: document.getElementById('newZubanNote').value, items: items
     }).then(function(){
       toast('図番 '+zuban+' のテンプレートを保存しました。');
       if(state.returnToInspectAfterTmpl && state.inspect && state.inspect.zuban === zuban){
@@ -1531,7 +1535,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.getElementById('in_material').value = (info.material || '') + '(L/N.)';
     document.getElementById('in_process').value = info.process || '';
     document.getElementById('in_orderNo').value = '';
-    document.getElementById('in_note').value = '';
+    document.getElementById('in_note').value = info.defaultNote || '';
     document.getElementById('viewPdfBtn').hidden = true;
     defaultInspector_();
     setInspectMode_('new', null);
