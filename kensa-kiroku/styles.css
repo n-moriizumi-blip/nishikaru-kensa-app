@@ -211,7 +211,7 @@ table.items th:nth-child(4), table.items td:nth-child(4),
 table.items th:nth-child(5), table.items td:nth-child(5){ text-align:center }
 td.meas-cell{padding:5px 4px !important}
 table.items input.meas{
-  width:50px; font-family:'JetBrains Mono',monospace; font-size:11.5px; padding:8px 3px; min-height:38px;
+  width:58px; font-family:'JetBrains Mono',monospace; font-size:11.5px; padding:8px 2px; min-height:38px;
   border-radius:6px; border:1px solid var(--border-strong); background:var(--paper); color:var(--ink); text-align:center;
 }
 td.meas-cell.pass{background:var(--ok-soft)}
@@ -232,7 +232,7 @@ table.items th:nth-child(4), table.items td:nth-child(4){ left:162px; width:70px
 table.items th:nth-child(5), table.items td:nth-child(5){ left:232px; width:76px; white-space:nowrap; box-shadow:3px 0 6px rgba(28,20,8,.10) }
 /* table-layout:fixedの下では全列に幅が要るので、サンプル列にも明示する（無いと固定5列の実際の幅がずれ、
    実測値の左側がその下に隠れてしまう） */
-table.items th:nth-child(n+6), table.items td:nth-child(n+6){ width:52px }
+table.items th:nth-child(n+6), table.items td:nth-child(n+6){ width:60px }
 
 /* 新規図番テンプレート作成：記号・測定方法ツールバー・項目編集表 */
 /* .cardのoverflow:hiddenがあるとposition:stickyが効かないため、このカードだけ解除する */
