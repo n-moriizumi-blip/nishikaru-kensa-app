@@ -227,7 +227,7 @@ td.meas-cell.ng input.meas{border-color:var(--fail); color:var(--fail); font-wei
    高さの上限が無いと「スクロールしないコンテナ」がposition:stickyの基準になってしまい、
    全く固定されない結果になる（最初の実装で発覚）。そのため検査入力の表だけ高さを決め、
    表の中でスクロールする方式にする（テンプレート編集側は対象外、#inspectItemsCardのみ） */
-#inspectItemsCard .tbl-wrap{max-height:65vh; overflow-y:auto}
+#inspectItemsCard .tbl-wrap{max-height:80vh; overflow-y:auto}
 table.items thead th{ position:sticky; top:0; z-index:4 }
 
 /* №〜測定方法の5列は横スクロールしても固定表示 */
