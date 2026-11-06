@@ -1846,7 +1846,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         var td = document.createElement('td'); td.className = 'meas-cell';
         var input = document.createElement('input'); input.className = 'meas'; input.placeholder = '—'; input.dataset.sample = s;
         var pv = prefill && prefill[item.no+'_'+s];
-        if(fixedRemarkLabel && s === 1){ input.value = fixedRemarkLabel; input.readOnly = true; }
+        if(fixedRemarkLabel && s === 1){ input.value = fixedRemarkLabel; input.readOnly = true; input.dataset.fixedPass = '1'; }
         else if(pv){ input.value = pv; }
         else if(isGauge && s === 1){ input.value = '通'; }
         else if(isGauge && s === 2){ input.value = '止'; }
@@ -1896,7 +1896,11 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var max = parseFloat(tr.dataset.max), min = parseFloat(tr.dataset.min);
       tr.querySelectorAll('td.meas-cell').forEach(function(td){
         td.classList.remove('pass','ng');
-        var s = td.querySelector('input.meas').value.trim();
+        var input = td.querySelector('input.meas');
+        // 備考が「測定不可」「刃物形状」の固定表示セルは、数値測定が無いため常に合格扱いにする
+        // (2026-11-06追加)
+        if(input.dataset.fixedPass){ td.classList.add('pass'); filled++; return; }
+        var s = input.value.trim();
         if(!s || isReferenceValue(s)) return;
         // 「OK」「NG」（大文字小文字問わず）はそのまま合格・不合格として扱う(2026-11-05追加)。
         // 数値の公差と違って基準値(hasBase)の有無を問わない
