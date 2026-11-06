@@ -499,9 +499,12 @@ window.handleCredentialResponse = function(response){
     myEmail = payload.email; myName = payload.name || '';
   } catch(e){}
   document.getElementById('signinError').hidden = true;
+  // appShellが既に表示済み（＝アプリ起動中の裏での自動再認証・再ログイン）なら、
+  // ホーム画面に戻さず今の画面のまま続ける。初回サインイン時だけ画面遷移する（2026-11-06）
+  var isFirstSignIn = document.getElementById('appShell').hidden;
   document.getElementById('signinGate').hidden = true;
   document.getElementById('appShell').hidden = false;
-  startApp();
+  startApp(isFirstSignIn);
 };
 // IDトークンは約1時間で失効する。45分おきに裏で再取得を促し、失効エラーを受けたときも
 // その場で1回だけ再取得してリトライする
@@ -2103,7 +2106,10 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   });
 
   /* ---------- サインイン後の初期表示（handleCredentialResponseから呼ばれる） ---------- */
-  window.startApp = function(){
+  // navigate=false（裏での自動再認証・再ログイン時）は画面遷移しない。候補一覧の先読みだけは
+  // 害が無いのでいつも通り行う
+  window.startApp = function(navigate){
+    if(navigate === undefined) navigate = true;
     // 検索・閲覧の図番欄は一部一致でも候補が出るように、図番マスタの図番一覧を先読みしておく
     run('listZubanNames').then(function(names){
       allZubanNames = names;
@@ -2143,6 +2149,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     }).catch(function(){});
     // Google Chat通知の「承認待ちタブを開く」リンク等、URLの?view=で直接タブを指定できる
     // ようにする（2026-11-05）。state依存の画面（inspect等）は対象外、安全な一覧画面のみ許可
+    if(!navigate) return; // 裏での再認証・再ログインは今の画面のまま（2026-11-06）
     var requestedView = new URLSearchParams(location.search).get('view');
     var allowedDeepLinkViews = ['home', 'new', 'approve', 'search', 'guide'];
     go(allowedDeepLinkViews.indexOf(requestedView) >= 0 ? requestedView : 'home');
