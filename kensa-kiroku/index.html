@@ -1831,7 +1831,10 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var tr = document.createElement('tr');
       var base = nominalTol(item.base), max = parseTol(item.max), min = parseTol(item.min);
       if(base !== null && max !== null && min !== null){ tr.dataset.base = base; tr.dataset.max = max; tr.dataset.min = min; }
-      var baseDisplay = item.base + (item.remark ? '　' + item.remark : '');
+      // 「測定不可」「刃物形状」は実測値欄に固定表示するため、基準値欄側には重ねて出さない
+      // （他の備考（(研磨前)等）はこれまで通り基準値欄に表示する、2026-11-06）
+      var baseRemark = (item.remark || '').split('/').filter(function(r){ return r !== '測定不可' && r !== '刃物形状'; }).join('/');
+      var baseDisplay = item.base + (baseRemark ? '　' + baseRemark : '');
       var noTd = document.createElement('td'); noTd.className = 'num'; noTd.textContent = item.no; tr.appendChild(noTd);
       [baseDisplay, item.max, item.min].forEach(function(v){
         var td = document.createElement('td'); td.className = 'num'; td.innerHTML = bigSymHtml_(v); tr.appendChild(td);
