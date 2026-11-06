@@ -194,7 +194,7 @@
         <datalist id="remarkSuggest">
           <option value="(熱処理前)"></option><option value="(表面処理前)"></option><option value="(研磨前)"></option>
           <option value="(熱処理後)"></option><option value="(表面処理後)"></option><option value="(研磨後)"></option>
-          <option value="(カット品)"></option><option value="測定不可"></option>
+          <option value="(カット品)"></option><option value="測定不可"></option><option value="刃物形状"></option>
         </datalist>
 
         <div style="display:flex; gap:10px; justify-content:flex-end">
@@ -1838,11 +1838,16 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       });
       var mTd = document.createElement('td'); mTd.className = 'num'; mTd.textContent = item.method; tr.appendChild(mTd);
       var isGauge = !readOnly && GAUGE_METHODS.indexOf(normMethod_(item.method)) >= 0;
+      // 備考が「測定不可」「刃物形状」の項目は、サンプルごとに実測値を取らず、1つ目の
+      // 実測値欄に備考の文字をそのまま固定表示する（編集不可、2026-11-06）
+      var remarkText = item.remark || '';
+      var fixedRemarkLabel = remarkText.indexOf('測定不可') >= 0 ? '測定不可' : (remarkText.indexOf('刃物形状') >= 0 ? '刃物形状' : null);
       for(var s=1; s<=sampleCount; s++){
         var td = document.createElement('td'); td.className = 'meas-cell';
         var input = document.createElement('input'); input.className = 'meas'; input.placeholder = '—'; input.dataset.sample = s;
         var pv = prefill && prefill[item.no+'_'+s];
-        if(pv){ input.value = pv; }
+        if(fixedRemarkLabel && s === 1){ input.value = fixedRemarkLabel; input.readOnly = true; }
+        else if(pv){ input.value = pv; }
         else if(isGauge && s === 1){ input.value = '通'; }
         else if(isGauge && s === 2){ input.value = '止'; }
         if(readOnly) input.disabled = true;
