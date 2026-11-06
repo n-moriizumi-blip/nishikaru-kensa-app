@@ -118,14 +118,17 @@ body{
 /* record rows */
 .rlist{display:flex; flex-direction:column}
 .rrow{
-  display:grid; grid-template-columns:1fr 100px 90px 110px 28px; gap:10px; align-items:center;
+  display:grid; grid-template-columns:1fr auto 28px; gap:10px; align-items:center;
   padding:14px 16px; min-height:44px; border-bottom:1px solid var(--border); cursor:pointer;
 }
 .rrow:last-child{border-bottom:none}
 .rrow:hover{background:var(--paper)}
 .rrow .zu{font-weight:700; font-size:13px}
 .rrow .meta{font-size:11.5px; color:var(--ink-dim)}
-.rrow .date{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink-dim)}
+/* 状態タグと日付を横に並べて1段にする（2026-11-06、日付欄の右に無駄な余白があった構成を
+   整理し、タグの横に大きめの日付を置く形にした） */
+.pillRow{display:flex; align-items:center; gap:8px}
+.rrow .date{font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; color:var(--ink-dim)}
 /* 品質情報の内容本文。.metaより大きく・はっきりした色にして読みやすくする（投稿者名だけ控えめに） */
 .rrow .qlContent{font-size:14px; line-height:1.65; color:var(--ink); margin-top:2px; white-space:pre-wrap}
 .rrow .qlBy{font-size:11.5px; color:var(--ink-dim)}

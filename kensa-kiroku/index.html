@@ -733,11 +733,11 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     // 行全体の中央揃えのせいでピルの縦位置がずれて見える不具合があった(2026-11-05修正)。
     // リンク欄の高さを常に確保しておくことで、中身の有無に関わらずピルの位置を揃える
     row.innerHTML = '<div><div class="zu"></div><div class="meta"></div></div>'+
-      '<div class="pillWrap"><span class="pill"></span><div class="rrowLinks"></div></div><div class="date"></div><div class="arrow">›</div>';
+      '<div class="pillWrap"><div class="pillRow"><span class="pill"></span><span class="date"></span></div><div class="rrowLinks"></div></div><div class="arrow">›</div>';
     row.querySelector('.zu').textContent = zu;
     row.querySelector('.meta').textContent = meta;
     var p = row.querySelector('.pill'); p.textContent = stateLabel; p.className = 'pill ' + (pill[stateLabel] || '');
-    row.querySelector('.date').textContent = date;
+    row.querySelector('.date').textContent = dateJp_(date);
     if(onClick) row.addEventListener('click', onClick);
     if(extra && (extra.pdfFileId || extra.certCount)){
       var links = row.querySelector('.rrowLinks');
@@ -807,6 +807,11 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   // 目立たせるため2行目のmetaLine_から1行目に移動した）
   function zuLine_(zuban, customer){
     return '図番: ' + zuban + (customer ? '　得意先: ' + customer : '');
+  }
+  // "2026-11-06" → "2026年11月06日"（2026-11-06、一覧の日付表示を分かりやすくする変更）
+  function dateJp_(s){
+    var m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? (m[1] + '年' + m[2] + '月' + m[3] + '日') : (s || '');
   }
 
   /* ---------- 新規作成 ---------- */
