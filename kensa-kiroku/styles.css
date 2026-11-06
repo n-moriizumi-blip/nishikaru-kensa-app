@@ -242,6 +242,9 @@ table.items th:nth-child(n+6), table.items td:nth-child(n+6){ width:60px }
 /* 新規図番テンプレート作成：記号・測定方法ツールバー・項目編集表 */
 /* .cardのoverflow:hiddenがあるとposition:stickyが効かないため、このカードだけ解除する */
 #tmplItemsCard{overflow:visible}
+/* 検査入力の検査項目カードも同じ理由（.cardのoverflow:hiddenがposition:stickyを妨げる）で解除する。
+   見出し行の縦固定表示のため（2026-11-06） */
+#inspectItemsCard{overflow:visible}
 .stickyToolbars{position:sticky; top:0; z-index:5; background:var(--surface); box-shadow:0 2px 6px rgba(28,20,8,.10); border-radius:12px 12px 0 0}
 .symToolbar{display:flex; flex-wrap:wrap; gap:6px; padding:12px 16px; border-bottom:1px solid var(--border)}
 .symGroup{display:flex; gap:4px; padding-right:10px; border-right:1px solid var(--border)}
