@@ -184,6 +184,7 @@
         <datalist id="methodSuggest">
           <option value="M"></option><option value="B.M."></option><option value="P.G."></option><option value="S.G."></option>
           <option value="N.G."></option><option value="R.G."></option><option value="B.G."></option><option value="I.M."></option>
+          <option value="N.G./N"></option><option value="P.G./N"></option>
           <option value="P"></option><option value="I.G."></option><option value="F.T."></option><option value="P.T."></option>
           <option value="N"></option>
           <option value="M.E."></option><option value="S.E."></option><option value="T.G."></option><option value="L.M."></option>
@@ -215,8 +216,8 @@
         <div style="padding:16px" class="formGrid">
           <label class="fl">検査記録の添付<select id="sp_検査記録の添付" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
           <label class="fl">ミルシート<select id="sp_ミルシート" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
-          <label class="fl">ロットNo.の入力<select id="sp_ロットNo.の入力" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
-          <label class="fl">受注・客先番号の入力<select id="sp_受注・客先番号の入力" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
+          <label class="fl">ロットNo.の入力<select id="sp_ロットNo.の入力" disabled><option value="">（未設定）</option><option>必要</option><option>必要（手記）</option><option>不要</option></select></label>
+          <label class="fl">受注・客先番号の入力<select id="sp_受注・客先番号の入力" disabled><option value="">（未設定）</option><option>必要</option><option>必要（手記）</option><option>不要</option></select></label>
           <label class="fl">トレー梱包の種類<select id="sp_トレー梱包の種類" disabled><option value="">（未設定）</option></select></label>
           <label class="fl">NG・限度見本の有無<select id="sp_NG・限度見本の有無" disabled><option value="">（未設定）</option><option>有</option><option>無</option></select></label>
           <label class="fl">カット品<select id="sp_カット品" disabled><option value="">（未設定）</option><option>必要</option><option>不要</option></select></label>
@@ -697,9 +698,11 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   // 戻る操作で検査記録ポータルに戻れる
 
   /* ---------- ホーム ---------- */
-  function loadHome(){
-    document.getElementById('homeToday').textContent = '読み込み中…';
-    run('getHome').then(function(d){
+  // silent=trueのときは「読み込み中…」表示や通信エラーのトーストを出さない
+  // （数分おきの裏での自動更新用。見た目のちらつきを避けるため）
+  function loadHome(silent){
+    if(!silent) document.getElementById('homeToday').textContent = '読み込み中…';
+    (silent ? runSilent : run)('getHome').then(function(d){
       state.me = d.me;
       document.querySelector('.nav-btn[data-go="approve"]').hidden = !isApprover_();
       var badge = document.getElementById('navBadgeApprove');
@@ -722,8 +725,16 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
           openAnyRecord(r.recordId);
         }, { recordId: r.recordId, pdfFileId: r.pdfFileId, certCount: r.certCount }));
       });
-    }).catch(errToast);
+    }).catch(function(err){ if(!silent) errToast(err); });
   }
+  // ホーム画面を開いたまま放置していても件数が最新に見えるよう、数分おきに裏で更新する。
+  // 画面を見ていない間の無駄な通信を避けるため、ホーム画面を表示中のときだけ更新する
+  // （2026-11-09、自動保存と同じ3分間隔）
+  var HOME_REFRESH_INTERVAL_MS = 3 * 60 * 1000;
+  setInterval(function(){
+    if(document.getElementById('view-home').hidden) return;
+    loadHome(true);
+  }, HOME_REFRESH_INTERVAL_MS);
   // extra: 承認済み行だけ、PDF・処理検査成績書への直接リンクを添える任意情報
   // （{recordId, pdfFileId, certCount}。2026-11-05、一覧から直接開けるようにする機能）
   function rrow_(zu, meta, stateLabel, date, onClick, extra){
@@ -963,10 +974,11 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     });
   }
   // JIS B 0405（普通公差・長さ寸法・中級 m）：基準値を入れたとき、公差MAX・MINが未入力なら自動で入れる
-  // （手で公差を入れている場合は上書きしない。0.5mm以下・4000mm超は対象外）
+  // （手で公差を入れている場合は上書きしない。4000mm超は対象外。2026-11-09、0〜6mmは
+  // 一律±0.1にしたいとのことで、元のJIS規格にある「0.5mm以下は対象外」の除外をやめた）
   var JIS_GENERAL_TOL_M = [[3,0.1],[6,0.1],[30,0.2],[120,0.3],[400,0.5],[1000,0.8],[2000,1.2],[4000,2]];
   function jisGeneralTol_(nominal){
-    if(nominal === null || nominal <= 0.5) return null;
+    if(nominal === null || nominal <= 0) return null;
     for(var i=0;i<JIS_GENERAL_TOL_M.length;i++){ if(nominal <= JIS_GENERAL_TOL_M[i][0]) return JIS_GENERAL_TOL_M[i][1]; }
     return null;
   }
