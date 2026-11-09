@@ -58,7 +58,10 @@
     </div>
     <div class="rail-user">
       <div class="av" id="railAv">?</div>
-      <div class="who"><b id="railName">読み込み中…</b><span id="railRole">　</span></div>
+      <div class="who">
+        <b id="railName">読み込み中…</b><span id="railRole">　</span>
+        <button type="button" id="manualRelogin" class="rail-relogin" title="ログインの有効期限が切れて保存できない場合はこちらを押してください">🔄 再ログイン</button>
+      </div>
     </div>
   </div></nav>
 
@@ -543,11 +546,32 @@ window.handleCredentialResponse = function(response){
   startApp(isFirstSignIn);
 };
 // IDトークンは約1時間で失効する。45分おきに裏で再取得を促し、失効エラーを受けたときも
-// その場で1回だけ再取得してリトライする
+// その場で再取得してリトライする。
+// 2026-11-09修正：以前は「prompt()を呼んで1.5秒待つだけ」で、実際に新しいトークンが
+// 届いたかを確認していなかった。Googleの自動サインイン（One Tap）は、過去に一度でも
+// 閉じられていたりすると無言で何も起きないことがあるため、1.5秒では足りない・あるいは
+// 全く再取得できないことがあり、検査入力中に下書き保存がトークンエラーで失敗する原因に
+// なっていた。実際にidTokenが変わるまで（最大4秒×2回試行）待ち、それでも更新できなければ
+// 失敗をはっきり返すようにした
 function refreshToken_(){
   return new Promise(function(resolve){
-    try { google.accounts.id.prompt(); } catch(e){}
-    setTimeout(resolve, 1500);
+    var before = idToken;
+    var attempt = 0;
+    function tryOnce(){
+      attempt++;
+      try { google.accounts.id.prompt(); } catch(e){}
+      var waited = 0;
+      (function poll(){
+        if(idToken !== before){ resolve(true); return; }
+        waited += 300;
+        if(waited >= 4000){
+          if(attempt < 2){ tryOnce(); } else { resolve(false); }
+          return;
+        }
+        setTimeout(poll, 300);
+      })();
+    }
+    tryOnce();
   });
 }
 setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 60 * 1000);
@@ -609,7 +633,12 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     }
     return req.then(function(r){ return r.json(); }).then(function(res){
       if(res && res.ok === false && /トークン無効/.test(res.error || '') && !retried){
-        return refreshToken_().then(function(){ return apiCall_(name, args, true); });
+        return refreshToken_().then(function(refreshed){
+          if(!refreshed){
+            throw new Error('ログインの有効期限が切れました。入力した内容は消えていません。左下の「🔄 再ログイン」ボタンを押してからもう一度お試しください。');
+          }
+          return apiCall_(name, args, true);
+        });
       }
       if(res && res.ok === false) throw new Error(res.error || '不明なエラーです');
       return res;
@@ -637,6 +666,15 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     clearTimeout(t._tm); t._tm = setTimeout(function(){ t.classList.remove('show'); }, 2800);
   }
   function errToast(err){ toast('エラー: ' + (err && err.message ? err.message : err)); }
+
+  // ログイン有効期限切れでの保存失敗から、画面再読込（＝入力中のデータが消える）せずに
+  // 復旧するための手動ボタン（2026-11-09）
+  document.getElementById('manualRelogin').addEventListener('click', function(){
+    toast('再ログインを試しています…');
+    refreshToken_().then(function(ok){
+      toast(ok ? '再ログインしました。もう一度保存をお試しください。' : '再ログインできませんでした。少し待ってからもう一度お試しください。');
+    });
+  });
 
   var pill = { '承認済み': 'approved', '承認待ち': 'waiting', '記入中': 'progress', '差し戻し': 'fail' };
 
@@ -2181,7 +2219,12 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     saveDraftRecord_(collectInspectPayload_(), runSilent).then(function(res){
       state.inspect.recordId = res.recordId;
       document.getElementById('autoSaveIndicator').textContent = '自動保存済み ' + new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
-    }).catch(function(){});
+    }).catch(function(){
+      // 失敗の詳細はトーストで毎回出さない（頻繁に鬱陶しくなるため）が、「保存できていない」
+      // ことだけは自動保存インジケーターの表示でずっと分かるようにしておく
+      // （2026-11-09、トークン切れで下書き保存に失敗する不具合の対応）
+      document.getElementById('autoSaveIndicator').textContent = '⚠ 自動保存に失敗しました（通信状態を確認してください）';
+    });
   }
   setInterval(autoSaveTick, AUTOSAVE_INTERVAL_MS);
   // 材質/ロットNo.欄の最後の括弧（既定の(L/N.)、または書き換えた別の管理番号の括弧）の
