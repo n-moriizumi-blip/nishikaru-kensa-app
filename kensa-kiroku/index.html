@@ -1588,7 +1588,11 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         return fetch('https://www.googleapis.com/drive/v3/files/' + f.id + '?alt=media&supportsAllDrives=true', {
           headers: { Authorization: 'Bearer ' + driveAccessToken_ }
         }).then(function(r){
-          if(!r.ok) throw new Error('ドライブからのダウンロードに失敗しました: ' + f.name);
+          if(!r.ok){
+            return r.text().then(function(body){
+              throw new Error('ドライブからのダウンロードに失敗しました: ' + f.name + '（status ' + r.status + ': ' + body.slice(0,200) + '）');
+            });
+          }
           return r.blob();
         }).then(function(blob){
           return new File([blob], f.name, { type: blob.type || f.mimeType || 'application/octet-stream' });
