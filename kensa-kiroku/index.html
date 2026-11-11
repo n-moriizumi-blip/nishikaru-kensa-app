@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
 
@@ -151,6 +152,7 @@
             <div>
               <input type="file" id="zubanSendAttachInput" accept="image/*,application/pdf" multiple hidden>
               <button type="button" class="btn btn-ghost btn-sm" id="zubanSendAttachBtn">📎 資料を添付</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="zubanSendAttachDriveBtn">📁 Googleドライブから選択</button>
               <span class="note" id="zubanSendAttachLabel" style="margin-left:8px"></span>
             </div>
             <div id="zubanSendAttachList" class="rlist"></div>
@@ -259,6 +261,7 @@
           <div>
             <input type="file" id="qlPhotoInput" accept="image/*,application/pdf" multiple hidden>
             <button type="button" class="btn btn-ghost btn-sm" id="qlPhotoBtn">📷 写真・PDFを添付</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="qlPhotoDriveBtn">📁 Googleドライブから選択</button>
             <span class="note" id="qlPhotoLabel" style="margin-left:8px"></span>
             <div id="qlPhotoThumbs" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px"></div>
           </div>
@@ -334,6 +337,7 @@
           <div>
             <input type="file" id="certInput" accept="image/*,application/pdf" multiple hidden>
             <button type="button" class="btn btn-ghost btn-sm" id="certBtn">📎 成績書を添付</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="certDriveBtn">📁 Googleドライブから選択</button>
             <span class="note" id="certLabel" style="margin-left:8px"></span>
           </div>
           <div id="certList" class="rlist"></div>
@@ -1509,6 +1513,90 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       reader.readAsDataURL(fileOrBlob);
     });
   }
+
+  /* ---------- Googleドライブから選んで添付（2026-11-11） ---------- */
+  // ドライブ上のファイルを選ばせ、ダウンロードしてFileオブジェクトにする。以後は
+  // 端末から選んだファイルと全く同じ扱いで、既存のアップロード処理（リサイズ・Base64化・
+  // アップロード）にそのまま渡せる
+  var GOOGLE_APP_ID_ = '800178947678'; // OAuthクライアントIDの先頭（GCPプロジェクト番号）と同じ
+  var PICKER_API_KEY_ = 'AIzaSyDcDs_2DqARNWnl4v1w8yI7P8_6pg-RmDs';
+  var pickerLoaded_ = false, pickerLoadPromise_ = null;
+  var driveAccessToken_ = null, driveTokenClient_ = null;
+  function ensurePickerLoaded_(){
+    if(pickerLoaded_) return Promise.resolve();
+    if(!pickerLoadPromise_){
+      pickerLoadPromise_ = new Promise(function(resolve, reject){
+        if(typeof gapi === 'undefined'){ reject(new Error('Google APIの読み込みに失敗しました。再読み込みしてお試しください。')); return; }
+        gapi.load('picker', function(){ pickerLoaded_ = true; resolve(); });
+      });
+    }
+    return pickerLoadPromise_;
+  }
+  // 「このアプリで選んだファイルだけ」扱える限定スコープ（drive.file）。初回だけGoogleの
+  // 許可ポップアップが出る。ボタンのクリックから直接呼ぶ必要がある（ポップアップブロック対策）
+  function ensureDriveAccessToken_(){
+    if(driveAccessToken_) return Promise.resolve(driveAccessToken_);
+    return new Promise(function(resolve, reject){
+      if(typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2){
+        reject(new Error('Googleログインの準備ができていません。少し待ってからお試しください。')); return;
+      }
+      if(!driveTokenClient_){
+        driveTokenClient_ = google.accounts.oauth2.initTokenClient({
+          client_id: '800178947678-t8c38lm8aqpjkgh1fli1s75vvhploue2.apps.googleusercontent.com',
+          scope: 'https://www.googleapis.com/auth/drive.file',
+          callback: function(resp){
+            if(resp && resp.access_token){ driveAccessToken_ = resp.access_token; resolve(resp.access_token); }
+            else reject(new Error('Googleドライブへのアクセスが許可されませんでした'));
+          },
+          error_callback: function(){ reject(new Error('Googleドライブへのアクセスが許可されませんでした')); }
+        });
+      }
+      driveTokenClient_.requestAccessToken({ prompt: '' });
+    });
+  }
+  // Pickerでファイルを選ばせ、選ばれたファイルをダウンロードしてFile配列で返す
+  // （キャンセル時はnullを返す）
+  function pickFromGoogleDrive_(){
+    return Promise.all([ensurePickerLoaded_(), ensureDriveAccessToken_()]).then(function(r){
+      var token = r[1];
+      return new Promise(function(resolve){
+        var view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+          .setIncludeFolders(true)
+          .setSelectFolderEnabled(false)
+          .setEnableDrives(true)
+          .setMimeTypes('image/png,image/jpeg,image/gif,image/webp,application/pdf');
+        var picker = new google.picker.PickerBuilder()
+          .setOAuthToken(token)
+          .setDeveloperKey(PICKER_API_KEY_)
+          .setAppId(GOOGLE_APP_ID_)
+          .addView(view)
+          .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+          .enableFeature(google.picker.Feature.SUPPORT_DRIVES)
+          .setCallback(function(data){
+            if(data.action === google.picker.Action.PICKED){
+              resolve(data.docs.map(function(d){ return { id: d.id, name: d.name, mimeType: d.mimeType }; }));
+            } else if(data.action === google.picker.Action.CANCEL){
+              resolve(null);
+            }
+          })
+          .build();
+        picker.setVisible(true);
+      });
+    }).then(function(picked){
+      if(!picked || !picked.length) return null;
+      return Promise.all(picked.map(function(f){
+        return fetch('https://www.googleapis.com/drive/v3/files/' + f.id + '?alt=media&supportsAllDrives=true', {
+          headers: { Authorization: 'Bearer ' + driveAccessToken_ }
+        }).then(function(r){
+          if(!r.ok) throw new Error('ドライブからのダウンロードに失敗しました: ' + f.name);
+          return r.blob();
+        }).then(function(blob){
+          return new File([blob], f.name, { type: blob.type || f.mimeType || 'application/octet-stream' });
+        });
+      }));
+    });
+  }
+
   document.getElementById('qlPhotoBtn').addEventListener('click', function(){
     document.getElementById('qlPhotoInput').click();
   });
@@ -1516,9 +1604,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   // （承認時と同じresolvePdfFolderChoices_を流用。選んだ内容は図番マスタに書き戻るため、
   // 次回以降はこのチェック自体が不要になる＝完全一致ですぐ進む）
   var qlFolderChoiceCache = null;
-  document.getElementById('qlPhotoInput').addEventListener('change', function(e){
-    var files = Array.prototype.slice.call(e.target.files || []);
-    e.target.value = '';
+  function handleQlPhotoFiles_(files){
     if(!files.length || !state.zubanPage) return;
     var zuban = state.zubanPage.zuban;
     var label = document.getElementById('qlPhotoLabel');
@@ -1547,6 +1633,14 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       });
       return chain;
     }).then(function(){ label.textContent = ''; }).catch(function(err){ label.textContent = ''; errToast(err); });
+  }
+  document.getElementById('qlPhotoInput').addEventListener('change', function(e){
+    var files = Array.prototype.slice.call(e.target.files || []);
+    e.target.value = '';
+    handleQlPhotoFiles_(files);
+  });
+  document.getElementById('qlPhotoDriveBtn').addEventListener('click', function(){
+    pickFromGoogleDrive_().then(function(files){ if(files) handleQlPhotoFiles_(files); }).catch(errToast);
   });
   document.getElementById('addQualityLog').addEventListener('click', function(){
     if(!qlForm.hidden && !state.editingQlId){ closeQlForm_(); return; }
@@ -1811,16 +1905,12 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     });
   }
   var certFolderChoiceCache = null;
-  document.getElementById('certBtn').addEventListener('click', function(){
-    if(!state.inspect) return;
-    var ensureRecordId = state.inspect.recordId
+  function ensureInspectRecordId_(){
+    return state.inspect.recordId
       ? Promise.resolve(state.inspect.recordId)
       : run('saveInspectionRecord', collectInspectPayload_(), '記入中').then(function(res){ state.inspect.recordId = res.recordId; return res.recordId; });
-    ensureRecordId.then(function(){ document.getElementById('certInput').click(); }).catch(errToast);
-  });
-  document.getElementById('certInput').addEventListener('change', function(e){
-    var files = Array.prototype.slice.call(e.target.files || []);
-    e.target.value = '';
+  }
+  function handleCertFiles_(files){
     if(!files.length || !state.inspect || !state.inspect.recordId) return;
     var zuban = state.inspect.zuban, recordId = state.inspect.recordId;
     var label = document.getElementById('certLabel');
@@ -1848,6 +1938,25 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       });
       return chain;
     }).then(function(){ label.textContent = ''; }).catch(function(err){ label.textContent = ''; errToast(err); });
+  }
+  document.getElementById('certBtn').addEventListener('click', function(){
+    if(!state.inspect) return;
+    ensureInspectRecordId_().then(function(){ document.getElementById('certInput').click(); }).catch(errToast);
+  });
+  document.getElementById('certInput').addEventListener('change', function(e){
+    var files = Array.prototype.slice.call(e.target.files || []);
+    e.target.value = '';
+    handleCertFiles_(files);
+  });
+  document.getElementById('certDriveBtn').addEventListener('click', function(){
+    if(!state.inspect) return;
+    // Googleの許可ポップアップがブロックされないよう、ドライブの選択はクリック直後に
+    // 同期的に始める（記録IDの確保はネットワーク呼び出しを挟むため並行して進める）
+    var filesPromise = pickFromGoogleDrive_();
+    var recordIdPromise = ensureInspectRecordId_();
+    Promise.all([filesPromise, recordIdPromise]).then(function(r){
+      if(r[0]) handleCertFiles_(r[0]);
+    }).catch(errToast);
   });
 
   /* ---------- 図番資料（備考の参考資料・送付資料、2026-11-09） ---------- */
@@ -1925,6 +2034,13 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     var zuban = document.getElementById('newZubanNo').value.trim();
     if(!files.length || !zuban) return;
     uploadZubanAttachFiles_(zuban, '送付資料', files, 'zubanSendAttachLabel');
+  });
+  document.getElementById('zubanSendAttachDriveBtn').addEventListener('click', function(){
+    var zuban = document.getElementById('newZubanNo').value.trim();
+    if(!zuban){ toast('先に図番を入力・保存してください'); return; }
+    pickFromGoogleDrive_().then(function(files){
+      if(files) uploadZubanAttachFiles_(zuban, '送付資料', files, 'zubanSendAttachLabel');
+    }).catch(errToast);
   });
   function setInspectMode_(mode, record){
     var editable = (mode === 'edit' || mode === 'new');
