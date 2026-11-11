@@ -1990,7 +1990,11 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       .replace(/[⌭⌖⌯⌰]/g, '<span class="symBig">$&</span>')
       .replace(/[⏤⏥]/g, '<span class="symFont">$&</span>');
   }
+  // PDF側は実測値欄が常に1〜15列固定（Pdf.gsのPDF_SAMPLE_COLS）のため、画面側の入力欄も
+  // 抜取数が15を超える場合は15までしか表示しない（それ以上入力してもPDFに載らないため）
+  var INSPECT_SAMPLE_COLS_MAX = 15;
   function buildItemsTable(items, sampleCount, prefill, readOnly){
+    if(sampleCount > INSPECT_SAMPLE_COLS_MAX) sampleCount = INSPECT_SAMPLE_COLS_MAX;
     document.getElementById('inspectItemsHead').textContent = '検査項目（全' + items.length + '項目・抜取' + sampleCount + '個）';
     var headRow = document.getElementById('itemsHeadRow'); headRow.innerHTML = '';
     ['№','基準値','公差MAX','公差MIN','測定方法'].forEach(function(t){ var th = document.createElement('th'); th.textContent = t; headRow.appendChild(th); });
