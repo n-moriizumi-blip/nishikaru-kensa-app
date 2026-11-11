@@ -1225,6 +1225,11 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     if(state.returnToInspectAfterTmpl && state.inspect){
       state.returnToInspectAfterTmpl = false;
       go('inspect');
+      // キャンセルで戻る場合もテンプレート編集中に資料を添付した可能性があるため、
+      // 備考の参考資料・処理検査成績書のカードを更新しておく（2026-11-10、
+      // 「キャンセル」経由だけ更新されず添付した資料が見えない不具合の修正）
+      setupCertCard_();
+      setupNoteAttachCard_();
       return;
     }
     if(state.zubanPage && state.zubanPage.zuban){ openZubanPage(state.zubanPage.zuban); }
