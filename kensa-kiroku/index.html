@@ -145,18 +145,6 @@
           </div>
         </div>
 
-        <div class="card" id="zubanNoteAttachCard" hidden>
-          <div class="card-head"><h2>備考の参考資料</h2><span class="note">検査入力画面の備考欄にも表示されます</span></div>
-          <div style="padding:16px; display:flex; flex-direction:column; gap:10px">
-            <div>
-              <input type="file" id="zubanNoteAttachInput" accept="image/*,application/pdf" multiple hidden>
-              <button type="button" class="btn btn-ghost btn-sm" id="zubanNoteAttachBtn">📎 資料を添付</button>
-              <span class="note" id="zubanNoteAttachLabel" style="margin-left:8px"></span>
-            </div>
-            <div id="zubanNoteAttachList" class="rlist"></div>
-          </div>
-        </div>
-
         <div class="card" id="zubanSendAttachCard" hidden>
           <div class="card-head"><h2>送付資料</h2><span class="note">検査記録と一緒に得意先へ送る資料（検査記録PDFとは別ファイルのまま扱います）</span></div>
           <div style="padding:16px; display:flex; flex-direction:column; gap:10px">
@@ -338,11 +326,6 @@
           <label class="fl">受注・客先番号<input type="text" id="in_orderNo"></label>
           <label class="fl" style="grid-column:1 / -1">備考<textarea id="in_note" placeholder="任意" rows="2"></textarea></label>
         </div>
-      </div>
-
-      <div class="card" id="inspectNoteAttachCard" hidden>
-        <div class="card-head"><h2>備考の参考資料</h2></div>
-        <div style="padding:16px"><div id="inspectNoteAttachList" class="rlist"></div></div>
       </div>
 
       <div class="card" id="certCard" hidden>
@@ -1192,7 +1175,6 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     addTemplateRow('', '', '', '');
     // 図番資料は図番の保存先が決まってから添付できる仕組みのため、新規作成中は隠す
     // （保存すると図番ページ経由の編集に切り替わり、そこから添付できるようになる）
-    document.getElementById('zubanNoteAttachCard').hidden = true;
     document.getElementById('zubanSendAttachCard').hidden = true;
   });
   // 既存の図番のテンプレートを編集する（図番ページの「✎テンプレートを編集する」から）
@@ -1210,7 +1192,6 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.getElementById('tmplItemsBody').innerHTML = '';
     (info.items || []).forEach(function(it){ addTemplateRow(it.base, it.max, it.min, it.method, it.remark); });
     if(!info.items || !info.items.length) addTemplateRow('', '', '', '', '');
-    document.getElementById('zubanNoteAttachCard').hidden = false;
     document.getElementById('zubanSendAttachCard').hidden = false;
     zubanAttachFolderChoiceCache = null;
     loadZubanAttachCardsForTemplate_(info.zuban);
@@ -1225,11 +1206,9 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     if(state.returnToInspectAfterTmpl && state.inspect){
       state.returnToInspectAfterTmpl = false;
       go('inspect');
-      // キャンセルで戻る場合もテンプレート編集中に資料を添付した可能性があるため、
-      // 備考の参考資料・処理検査成績書のカードを更新しておく（2026-11-10、
-      // 「キャンセル」経由だけ更新されず添付した資料が見えない不具合の修正）
+      // キャンセルで戻る場合も出荷仕様が変わっている可能性があるため、処理検査成績書の
+      // カードを更新しておく（2026-11-10、「キャンセル」経由だけ更新されない不具合の修正）
       setupCertCard_();
-      setupNoteAttachCard_();
       return;
     }
     if(state.zubanPage && state.zubanPage.zuban){ openZubanPage(state.zubanPage.zuban); }
@@ -1298,7 +1277,6 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var sampleCount = parseInt(document.getElementById('in_sampleCount').value, 10) || DEFAULT_SAMPLE_COUNT;
       buildItemsTable(state.inspect.info.items, sampleCount, prefill, !state.inspectEditable);
       setupCertCard_();
-      setupNoteAttachCard_();
     }).catch(errToast);
   }
 
@@ -1683,7 +1661,6 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       state.inspect.info.process = zp.info.process;
       go('inspect');
       setupCertCard_();
-      setupNoteAttachCard_();
       return;
     }
     if(!document.getElementById('zubanConfirmCheck').checked){
@@ -1776,7 +1753,6 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       buildItemsTable(tmpl.items, tmpl.sampleCount, tmpl.prefill, mode !== 'edit');
       setInspectMode_(mode, r);
       setupCertCard_();
-      setupNoteAttachCard_();
     }).catch(errToast);
   }
   // 記録一覧・最近の記録・過去の検査記録のどこから開いても、検査入力画面の中で状態に応じた表示に振り分ける
@@ -1892,18 +1868,15 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       ? Promise.resolve(zubanAttachFolderChoiceCache)
       : resolvePdfFolderChoices_(zuban).then(function(f){ f.zuban = zuban; zubanAttachFolderChoiceCache = f; return f; });
   }
-  // テンプレート編集画面で、備考資料・送付資料どちらのカードも読み込む（既存図番の編集時のみ）
+  // テンプレート編集画面で、送付資料のカードを読み込む（既存図番の編集時のみ）
   function loadZubanAttachCardsForTemplate_(zuban){
     run('getZubanAttachments', zuban).then(function(list){
-      renderZubanAttachList_('zubanNoteAttachList', list.filter(function(a){ return a.kind === '備考資料'; }), true, function(a){
-        run('deleteZubanAttachment', zuban, a.fileId).then(function(){ loadZubanAttachCardsForTemplate_(zuban); }).catch(errToast);
-      });
       renderZubanAttachList_('zubanSendAttachList', list.filter(function(a){ return a.kind === '送付資料'; }), true, function(a){
         run('deleteZubanAttachment', zuban, a.fileId).then(function(){ loadZubanAttachCardsForTemplate_(zuban); }).catch(errToast);
       });
     }).catch(errToast);
   }
-  // 備考資料・送付資料、共通のアップロード処理（テンプレート編集画面の2つのボタンで共用）
+  // 送付資料のアップロード処理
   function uploadZubanAttachFiles_(zuban, kind, files, labelId){
     var label = document.getElementById(labelId);
     return resolveZubanAttachFolder_(zuban).then(function(folder){
@@ -1925,17 +1898,6 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     }).then(function(){ label.textContent = ''; loadZubanAttachCardsForTemplate_(zuban); })
       .catch(function(err){ label.textContent = ''; errToast(err); });
   }
-  document.getElementById('zubanNoteAttachBtn').addEventListener('click', function(){
-    if(!document.getElementById('newZubanNo').value.trim()){ toast('先に図番を入力・保存してください'); return; }
-    document.getElementById('zubanNoteAttachInput').click();
-  });
-  document.getElementById('zubanNoteAttachInput').addEventListener('change', function(e){
-    var files = Array.prototype.slice.call(e.target.files || []);
-    e.target.value = '';
-    var zuban = document.getElementById('newZubanNo').value.trim();
-    if(!files.length || !zuban) return;
-    uploadZubanAttachFiles_(zuban, '備考資料', files, 'zubanNoteAttachLabel');
-  });
   document.getElementById('zubanSendAttachBtn').addEventListener('click', function(){
     if(!document.getElementById('newZubanNo').value.trim()){ toast('先に図番を入力・保存してください'); return; }
     document.getElementById('zubanSendAttachInput').click();
@@ -1947,16 +1909,6 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     if(!files.length || !zuban) return;
     uploadZubanAttachFiles_(zuban, '送付資料', files, 'zubanSendAttachLabel');
   });
-  // 検査入力画面：備考の参考資料を閲覧専用で表示する（編集はテンプレート編集画面のみ）
-  function setupNoteAttachCard_(){
-    if(!state.inspect || !state.inspect.zuban){ document.getElementById('inspectNoteAttachCard').hidden = true; return; }
-    run('getZubanAttachments', state.inspect.zuban).then(function(list){
-      var notes = list.filter(function(a){ return a.kind === '備考資料'; });
-      document.getElementById('inspectNoteAttachCard').hidden = !notes.length;
-      renderZubanAttachList_('inspectNoteAttachList', notes, false);
-    }).catch(function(){ /* 参考表示のため失敗しても検査自体は続けられるようにする */ });
-  }
-
   function setInspectMode_(mode, record){
     var editable = (mode === 'edit' || mode === 'new');
     state.inspectEditable = editable;
