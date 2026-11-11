@@ -592,6 +592,10 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     getZubanAttachments: { method:'GET', fields:['zuban'] },
     deleteZubanAttachment: { method:'POST', fields:['zuban','fileId'] }
   };
+  // 電波が弱い・画面ロック等で通信が止まったまま応答が返らないと、「通信中」の表示から
+  // 永久に進めなくなる不具合があった（2026-11-11、スマホからの承認操作で発生報告）。
+  // タイムアウトを設けて、一定時間応答が無ければ明示的なエラーに変えて操作に戻す
+  var API_TIMEOUT_MS = 60000;
   function apiCall_(name, args, retried){
     var spec = API_SPEC[name];
     if(!spec) return Promise.reject(new Error('未対応の呼び出しです: ' + name));
@@ -601,6 +605,10 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       if(v === undefined || v === null) return;
       params[fname] = v;
     });
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timedOut = false;
+    var timeoutId = controller && setTimeout(function(){ timedOut = true; controller.abort(); }, API_TIMEOUT_MS);
+    var fetchOpts = controller ? { signal: controller.signal } : {};
     var req;
     if(spec.method === 'GET'){
       var qs = 'mode=' + encodeURIComponent(name) + '&token=' + encodeURIComponent(idToken || '');
@@ -609,12 +617,12 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         var s = (typeof v === 'object') ? JSON.stringify(v) : String(v);
         qs += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(s);
       });
-      req = fetch(GAS_URL + '?' + qs);
+      req = fetch(GAS_URL + '?' + qs, fetchOpts);
     } else {
       var body = Object.assign({ action: name, token: idToken || '' }, params);
-      req = fetch(GAS_URL, { method:'POST', body: JSON.stringify(body) });
+      req = fetch(GAS_URL, Object.assign({ method:'POST', body: JSON.stringify(body) }, fetchOpts));
     }
-    return req.then(function(r){ return r.json(); }).then(function(res){
+    return req.then(function(r){ clearTimeout(timeoutId); return r.json(); }).then(function(res){
       if(res && res.ok === false && /トークン無効/.test(res.error || '') && !retried){
         return refreshToken_().then(function(refreshed){
           if(!refreshed){
@@ -625,6 +633,12 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       }
       if(res && res.ok === false) throw new Error(res.error || '不明なエラーです');
       return res;
+    }).catch(function(err){
+      clearTimeout(timeoutId);
+      if(timedOut || (err && err.name === 'AbortError')){
+        throw new Error('通信がタイムアウトしました。電波状況をご確認の上、もう一度お試しください。');
+      }
+      throw err;
     });
   }
 
