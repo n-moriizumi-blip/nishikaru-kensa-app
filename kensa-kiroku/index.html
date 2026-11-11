@@ -799,7 +799,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       d.recent.forEach(function(r){
         box.appendChild(rrow_(zuLine_(r.zuban, r.customer), metaLine_(r, false), r.state, r.date, function(){
           openAnyRecord(r.recordId);
-        }, { recordId: r.recordId, pdfFileId: r.pdfFileId, certCount: r.certCount }));
+        }, { recordId: r.recordId, pdfFileId: r.pdfFileId, certCount: r.certCount, sendAttachCount: r.sendAttachCount, zuban: r.zuban }));
       });
     }).catch(function(err){ if(!silent) errToast(err); });
   }
@@ -826,7 +826,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     var p = row.querySelector('.pill'); p.textContent = stateLabel; p.className = 'pill ' + (pill[stateLabel] || '');
     row.querySelector('.date').textContent = dateJp_(date);
     if(onClick) row.addEventListener('click', onClick);
-    if(extra && (extra.pdfFileId || extra.certCount)){
+    if(extra && (extra.pdfFileId || extra.certCount || extra.sendAttachCount)){
       var links = row.querySelector('.rrowLinks');
       if(extra.pdfFileId){
         var pdfA = document.createElement('a');
@@ -843,19 +843,34 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         certA.className = 'rrowLink cert';
         certA.addEventListener('click', function(e){
           e.stopPropagation(); e.preventDefault();
-          run('getCertificates', extra.recordId).then(function(certs){ showCertMenu_(certA, certs); }).catch(errToast);
+          run('getCertificates', extra.recordId).then(function(certs){ showFileMenu_(certA, certs, '成績書がありません'); }).catch(errToast);
         });
         links.appendChild(certA);
+      }
+      if(extra.sendAttachCount){
+        var sendA = document.createElement('a');
+        sendA.href = '#'; sendA.title = '送付資料を開く（' + extra.sendAttachCount + '件・この図番に共通）';
+        sendA.textContent = '📁' + extra.sendAttachCount;
+        sendA.className = 'rrowLink cert';
+        sendA.addEventListener('click', function(e){
+          e.stopPropagation(); e.preventDefault();
+          run('getZubanAttachments', extra.zuban).then(function(list){
+            var sends = list.filter(function(a){ return a.kind === '送付資料'; });
+            showFileMenu_(sendA, sends, '送付資料がありません');
+          }).catch(errToast);
+        });
+        links.appendChild(sendA);
       }
     }
     return row;
   }
-  // 📎アイコンの近くに成績書ファイルへのリンク一覧を小さく表示する（複数ファイルを
+  // 📎・📁アイコンの近くにファイルへのリンク一覧を小さく表示する（複数ファイルを
   // ポップアップブロックに引っかからず開けるよう、まとめて自動で開くのではなく
-  // 1つずつ人がタップする形にする）
+  // 1つずつ人がタップする形にする）。成績書（c.name）・送付資料（c.fileName）どちらの
+  // フィールド名でも表示できるようにしている
   function closeMiniMenu_(){ var m = document.getElementById('miniMenu'); if(m) m.remove(); }
   document.addEventListener('click', closeMiniMenu_);
-  function showCertMenu_(anchorEl, certs){
+  function showFileMenu_(anchorEl, files, emptyText){
     closeMiniMenu_();
     var menu = document.createElement('div');
     menu.id = 'miniMenu';
@@ -863,17 +878,17 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     var rect = anchorEl.getBoundingClientRect();
     menu.style.top = (rect.bottom + 4) + 'px';
     menu.style.left = Math.max(8, rect.right - 220) + 'px';
-    if(!certs.length){
+    if(!files.length){
       var empty = document.createElement('div');
-      empty.textContent = '成績書がありません';
+      empty.textContent = emptyText || 'ファイルがありません';
       empty.style.cssText = 'padding:6px 8px; font-size:12px; color:var(--ink-faint)';
       menu.appendChild(empty);
     }
-    certs.forEach(function(c){
+    files.forEach(function(c){
       var a = document.createElement('a');
       a.href = 'https://drive.google.com/file/d/' + c.fileId + '/view';
       a.target = '_blank'; a.rel = 'noopener';
-      a.textContent = '📎 ' + (c.name || '成績書');
+      a.textContent = '📎 ' + (c.name || c.fileName || 'ファイル');
       a.style.cssText = 'display:block; padding:6px 8px; font-size:12.5px; color:var(--ink); text-decoration:none; border-radius:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis';
       a.addEventListener('click', function(e){ e.stopPropagation(); });
       menu.appendChild(a);
@@ -1411,7 +1426,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       res.pastRecords.forEach(function(r){
         pastBox.appendChild(rrow_('📄 ' + r.date + ' 検査記録', metaLine_({ customer: r.customer, mfgNo: r.mfgNo, inspector: r.inspector, approver: r.approver }), '承認済み', r.date, function(){
           openAnyRecord(r.recordId);
-        }, { recordId: r.recordId, pdfFileId: r.pdfFileId, certCount: r.certCount }));
+        }, { recordId: r.recordId, pdfFileId: r.pdfFileId, certCount: r.certCount, sendAttachCount: r.sendAttachCount, zuban: zuban }));
       });
 
       run('getZubanAttachments', zuban).then(function(list){
@@ -2446,7 +2461,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       list.forEach(function(r){
         box.appendChild(rrow_(zuLine_(r.zuban, r.customer), metaLine_(r, false), r.state, r.date, function(){
           openAnyRecord(r.recordId);
-        }, { recordId: r.recordId, pdfFileId: r.pdfFileId, certCount: r.certCount }));
+        }, { recordId: r.recordId, pdfFileId: r.pdfFileId, certCount: r.certCount, sendAttachCount: r.sendAttachCount, zuban: r.zuban }));
       });
     }).catch(errToast);
     // 旧システム（検査記録DX化）のPDFは図番検索の時だけ合わせて表示する
