@@ -1560,6 +1560,9 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   // 抜取数欄を直接触ったら以後は自動で上書きしない
   var LOT_SAMPLE_TABLE = [[20,2],[50,3],[100,5],[300,10]];
   var DEFAULT_SAMPLE_COUNT = 2;
+  // H02-003700Bは抜取数の値に関係なく、検査入力画面の実測値欄を常に15個表示する（図番専用の例外対応、2026-11-11）
+  var ZUBAN_FIXED_SAMPLE_COLS_ = { 'H02-003700B': 15 };
+  function sampleColsForZuban_(zuban, count){ return ZUBAN_FIXED_SAMPLE_COLS_[zuban] || count; }
   function sampleCountForLot_(lotCount){
     var n = parseInt(lotCount, 10);
     if(isNaN(n) || n <= 0) return null;
@@ -1584,14 +1587,14 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     if(!state.inspect) return;
     var prefill = collectCurrentMeasurements_();
     document.getElementById('in_sampleCount').value = count;
-    buildItemsTable(state.inspect.info.items, count, prefill, !!readOnly);
+    buildItemsTable(state.inspect.info.items, sampleColsForZuban_(state.inspect.zuban, count), prefill, !!readOnly);
   }
   document.getElementById('in_sampleCount').addEventListener('input', function(){
     sampleCountTouched = true;
     var n = parseInt(this.value, 10);
     if(!isNaN(n) && n > 0 && state.inspect){
       var prefill = collectCurrentMeasurements_();
-      buildItemsTable(state.inspect.info.items, n, prefill, false);
+      buildItemsTable(state.inspect.info.items, sampleColsForZuban_(state.inspect.zuban, n), prefill, false);
     }
   });
   document.getElementById('in_lotCount').addEventListener('input', function(){
@@ -1629,7 +1632,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.getElementById('viewPdfBtn').hidden = true;
     defaultInspector_();
     setInspectMode_('new', null);
-    buildItemsTable(info.items, sampleCount);
+    buildItemsTable(info.items, sampleColsForZuban_(zuban, sampleCount));
     setupCertCard_();
   }
   // 「確認して検査を始める」ボタンは、出荷仕様・品質情報の確認チェックが入るまで
@@ -1750,7 +1753,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var pdfBtn = document.getElementById('viewPdfBtn');
       if(r['PDFファイルID']){ pdfBtn.hidden = false; pdfBtn.href = 'https://drive.google.com/file/d/' + r['PDFファイルID'] + '/view'; }
       else { pdfBtn.hidden = true; }
-      buildItemsTable(tmpl.items, tmpl.sampleCount, tmpl.prefill, mode !== 'edit');
+      buildItemsTable(tmpl.items, sampleColsForZuban_(r['図番'], tmpl.sampleCount), tmpl.prefill, mode !== 'edit');
       setInspectMode_(mode, r);
       setupCertCard_();
     }).catch(errToast);
