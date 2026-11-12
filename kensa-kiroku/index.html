@@ -2534,7 +2534,12 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     if(!navigate) return; // 裏での再認証・再ログインは今の画面のまま（2026-11-06）
     var requestedView = new URLSearchParams(location.search).get('view');
     var allowedDeepLinkViews = ['home', 'new', 'approve', 'search', 'guide'];
-    go(allowedDeepLinkViews.indexOf(requestedView) >= 0 ? requestedView : 'home');
+    var targetView = allowedDeepLinkViews.indexOf(requestedView) >= 0 ? requestedView : 'home';
+    // ホーム以外へ直接ディープリンクした場合、go()がloadHome()を呼ばないため左下の
+    // アカウント表示（railName等）が「読み込み中…」のまま固まる不具合があった。
+    // Google Chat通知の「承認待ちタブを開く」リンクで毎回この状態になっていたと判明（2026-11-12）
+    if(targetView !== 'home') loadHome(true);
+    go(targetView);
   };
 
   // サインイン失敗時（ドメイン外のアカウント等）、GAS側からエラーが返ってきたら
