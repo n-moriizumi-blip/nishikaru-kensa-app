@@ -90,6 +90,7 @@ body{
 .btn{
   font:inherit; font-size:13px; font-weight:700; border-radius:8px; padding:12px 18px; border:1px solid transparent;
   cursor:pointer; display:inline-flex; align-items:center; gap:7px; white-space:nowrap; min-height:44px;
+  text-decoration:none;
 }
 .btn-accent{background:var(--accent); color:#fff}
 .btn-accent:hover{filter:brightness(1.06)}
@@ -341,11 +342,11 @@ td.tmplActions{display:flex; gap:4px; align-items:center; white-space:nowrap}
 @keyframes busySpin{ to{transform:rotate(360deg)} }
 
 .toast{
-  position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(0); z-index:50;
+  position:fixed; left:50%; top:calc(env(safe-area-inset-top, 0px) + 18px); transform:translateX(-50%) translateY(-8px); z-index:210;
   background:var(--ink); color:var(--paper); padding:12px 20px; border-radius:10px; font-size:13px; font-weight:600;
   box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s;
 }
-.toast.show{opacity:1; transform:translateX(-50%) translateY(-6px)}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
 
 .note{font-size:11.5px; color:var(--ink-faint); line-height:1.6}
 .hr{border:none; border-top:1px solid var(--border); margin:0}

@@ -181,6 +181,7 @@
               <button type="button" class="symBtn symBtn-lg" data-sym="⌖" title="位置度">⌖</button>
               <button type="button" class="symBtn" data-sym="◎" title="同心度・同軸度">◎</button>
               <button type="button" class="symBtn symBtn-lg" data-sym="⌯" title="対称度">⌯</button>
+              <button type="button" class="symBtn" data-sym="⊥" title="直角度">⊥</button>
               <button type="button" class="symBtn" data-sym="↗" title="円周振れ">↗</button>
               <button type="button" class="symBtn symBtn-lg" data-sym="⌰" title="全振れ">⌰</button>
             </div>
@@ -213,6 +214,7 @@
           <option value="(熱処理前)"></option><option value="(表面処理前)"></option><option value="(研磨前)"></option>
           <option value="(熱処理後)"></option><option value="(表面処理後)"></option><option value="(研磨後)"></option>
           <option value="(カット品)"></option><option value="測定不可"></option><option value="刃物形状"></option>
+          <option value="(ネジ長さ)"></option><option value="(ネジ深さ)"></option>
         </datalist>
 
         <div style="display:flex; gap:10px; justify-content:flex-end">
@@ -306,6 +308,7 @@
         <div><h1><span class="mono" id="inspectTitle">—</span> 検査記録</h1><div class="sub" id="inspectSub">新規作成</div></div>
         <div style="display:flex; gap:8px; flex-wrap:wrap">
           <a class="btn btn-ghost btn-sm" id="viewPdfBtn" href="#" target="_blank" hidden>📄 PDFを見る</a>
+          <a class="btn btn-ghost btn-sm" id="viewSendAttachBtn" href="#" hidden>📁 送付資料を見る</a>
           <button class="btn btn-ghost btn-sm" id="peekZubanPage">📁 図番ページを見る</button>
           <button class="btn btn-ghost btn-sm" id="editTmplFromInspect">✏️ テンプレートを編集する</button>
           <span class="note" id="autoSaveIndicator" style="align-self:center"></span>
@@ -1823,6 +1826,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.getElementById('in_orderNo').value = '';
     document.getElementById('in_note').value = info.defaultNote || '';
     document.getElementById('viewPdfBtn').hidden = true;
+    document.getElementById('viewSendAttachBtn').hidden = true;
     defaultInspector_();
     setInspectMode_('new', null);
     buildItemsTable(info.items, sampleColsForZuban_(zuban, sampleCount));
@@ -1871,6 +1875,16 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     if(!state.inspect){ toast('図番が選ばれていません'); return; }
     state.returnToInspect = true;
     openZubanPage(state.inspect.zuban);
+  });
+  // 送付資料をPDF・処理検査成績書と同じく記録画面からワンタップで開けるようにする（2026-11-13）
+  document.getElementById('viewSendAttachBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    if(!state.inspect || !state.inspect.zuban) return;
+    var btn = this;
+    run('getZubanAttachments', state.inspect.zuban).then(function(list){
+      var sends = list.filter(function(a){ return a.kind === '送付資料'; });
+      showFileMenu_(btn, sends, '送付資料がありません');
+    }).catch(errToast);
   });
   // 検査入力画面からもテンプレートを編集できるようにする（2026-11-05）。テンプレート保存後は
   // 図番ページに戻る作り（saveTmpl）のため、項目が変わって古い入力中の表と食い違わないよう、
@@ -1944,8 +1958,10 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       document.getElementById('in_orderNo').value = r['受注・客先番号'];
       document.getElementById('in_note').value = r['備考'];
       var pdfBtn = document.getElementById('viewPdfBtn');
-      if(r['PDFファイルID']){ pdfBtn.hidden = false; pdfBtn.href = 'https://drive.google.com/file/d/' + r['PDFファイルID'] + '/view'; }
-      else { pdfBtn.hidden = true; }
+      // 送付資料も承認後（PDFが出来ている記録）だけ、PDF・処理検査成績書と同じように
+      // ワンタップで開けるようにする（2026-11-13）
+      if(r['PDFファイルID']){ pdfBtn.hidden = false; pdfBtn.href = 'https://drive.google.com/file/d/' + r['PDFファイルID'] + '/view'; document.getElementById('viewSendAttachBtn').hidden = false; }
+      else { pdfBtn.hidden = true; document.getElementById('viewSendAttachBtn').hidden = true; }
       buildItemsTable(tmpl.items, sampleColsForZuban_(r['図番'], tmpl.sampleCount), tmpl.prefill, mode !== 'edit');
       setInspectMode_(mode, r);
       setupCertCard_();
