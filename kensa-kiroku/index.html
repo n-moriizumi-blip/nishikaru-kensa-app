@@ -1310,24 +1310,31 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       insertAtCursor(lastFocusedInput, b.dataset.sym);
     });
   });
+  // 「新しい図番として作成」の場合だけ重複チェックする（既存図番の編集時はnewZubanNoが
+  // disabledなのでfalseを返さず素通りする）。完全一致は上書き事故を防ぐため作成そのものを
+  // ブロックし、「図番 部品①」のような工程違いの可能性がある近い名前は確認だけして続行できる
+  // ようにする（2026-11-13、H02-006200Bのテンプレート重複を踏まえた対応）。falseなら中止
+  function checkNewZubanDuplicate_(zuban){
+    if(!zuban || document.getElementById('newZubanNo').disabled) return true;
+    if(allZubanNames.indexOf(zuban) >= 0){
+      toast('図番「' + zuban + '」は既にテンプレートがあります。図番ページの「✎テンプレートを編集する」から編集してください。');
+      return false;
+    }
+    var siblings = allZubanNames.filter(function(n){ return n.indexOf(zuban + ' ') === 0; });
+    if(siblings.length){
+      return confirm('図番「' + zuban + '」に似た名前のテンプレートが既にあります（' + siblings.join('、') + '）。\n別の図番として本当に作成しますか？');
+    }
+    return true;
+  }
+  // 保存を押すまで待つと項目入力の時間が無駄になるため、図番欄から離れた時点で先に
+  // チェックする（確認・警告のみ。ここで中止しても項目欄はそのまま残る）
+  document.getElementById('newZubanNo').addEventListener('blur', function(){
+    checkNewZubanDuplicate_(this.value.trim());
+  });
   document.getElementById('saveTmpl').addEventListener('click', function(){
     var zuban = document.getElementById('newZubanNo').value.trim();
     if(!zuban){ toast('図番を入力してください'); return; }
-    // 「新しい図番として作成」の場合だけ重複チェックする（既存図番の編集時はnewZubanNoが
-    // disabledなのでここは通らない）。完全一致は上書き事故を防ぐため作成そのものをブロックし、
-    // 「図番 部品①」のような工程違いの可能性がある近い名前は確認だけして続行できるようにする
-    // （2026-11-13、H02-006200Bのテンプレート重複を踏まえた対応）
-    if(!document.getElementById('newZubanNo').disabled){
-      if(allZubanNames.indexOf(zuban) >= 0){
-        toast('図番「' + zuban + '」は既にテンプレートがあります。図番ページの「✎テンプレートを編集する」から編集してください。');
-        return;
-      }
-      var siblings = allZubanNames.filter(function(n){ return n.indexOf(zuban + ' ') === 0; });
-      if(siblings.length){
-        var ok = confirm('図番「' + zuban + '」に似た名前のテンプレートが既にあります（' + siblings.join('、') + '）。\n別の図番として本当に作成しますか？');
-        if(!ok) return;
-      }
-    }
+    if(!checkNewZubanDuplicate_(zuban)) return;
     var items = [];
     document.querySelectorAll('#tmplItemsBody tr').forEach(function(tr){
       var baseEl = tr.querySelector('.tmplBaseInput');
