@@ -745,6 +745,33 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     });
   }
 
+  // QRで読み取った図番から始まる別工程のテンプレートが複数ある場合、どちらを使うか選ばせる
+  // モーダル（folderModalOverlayを流用）。候補を選べばその図番名を、「キャンセル」を押せば
+  // nullを返す（2026-11-13）
+  function askZubanVariantChoice_(baseZuban, variants){
+    return new Promise(function(resolve){
+      var overlay = document.getElementById('folderModalOverlay');
+      document.getElementById('folderModalTitle').textContent = '図番を選んでください';
+      document.getElementById('folderModalNote').textContent = '図番「' + baseZuban + '」には工程違いのテンプレートが複数あります。どちらを使いますか？';
+      var box = document.getElementById('folderModalChoices');
+      box.innerHTML = '';
+      function choose(val){ overlay.hidden = true; resolve(val); }
+      variants.forEach(function(name){
+        var b = document.createElement('button');
+        b.className = 'btn btn-ghost'; b.style.textAlign = 'left';
+        b.textContent = '📄 ' + name;
+        b.addEventListener('click', function(){ choose(name); });
+        box.appendChild(b);
+      });
+      var cancelBtn = document.createElement('button');
+      cancelBtn.className = 'btn btn-ghost'; cancelBtn.style.textAlign = 'left';
+      cancelBtn.textContent = 'キャンセル';
+      cancelBtn.addEventListener('click', function(){ choose(null); });
+      box.appendChild(cancelBtn);
+      overlay.hidden = false;
+    });
+  }
+
   function go(name){
     if(name !== 'new') stopScan();
     views.forEach(function(v){
@@ -1007,6 +1034,18 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       }
       state.pendingMfgNo = res.mfgNo;
       state.pendingLotQty = res.lotQty || '';
+      if(res.variants && res.variants.length > 1){
+        askZubanVariantChoice_(res.zuban, res.variants).then(function(chosen){
+          if(!chosen){ document.getElementById('new-step-qr').hidden = false; return; }
+          run('getZubanPage', chosen).then(function(r2){
+            document.getElementById('new-step-found').hidden = false;
+            document.getElementById('foundTitle').textContent = '製造番号 ' + res.mfgNo + ' を読み取りました';
+            document.getElementById('foundSub').textContent = '図番 ' + chosen + ' / 得意先 ' + ((r2.info && r2.info.customer) || res.customer || '-');
+            state.zubanPage = { zuban: chosen, info: r2.info };
+          }).catch(errToast);
+        });
+        return;
+      }
       if(res.hasTemplate){
         document.getElementById('new-step-found').hidden = false;
         document.getElementById('foundTitle').textContent = '製造番号 ' + res.mfgNo + ' を読み取りました';
@@ -1274,6 +1313,21 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   document.getElementById('saveTmpl').addEventListener('click', function(){
     var zuban = document.getElementById('newZubanNo').value.trim();
     if(!zuban){ toast('図番を入力してください'); return; }
+    // 「新しい図番として作成」の場合だけ重複チェックする（既存図番の編集時はnewZubanNoが
+    // disabledなのでここは通らない）。完全一致は上書き事故を防ぐため作成そのものをブロックし、
+    // 「図番 部品①」のような工程違いの可能性がある近い名前は確認だけして続行できるようにする
+    // （2026-11-13、H02-006200Bのテンプレート重複を踏まえた対応）
+    if(!document.getElementById('newZubanNo').disabled){
+      if(allZubanNames.indexOf(zuban) >= 0){
+        toast('図番「' + zuban + '」は既にテンプレートがあります。図番ページの「✎テンプレートを編集する」から編集してください。');
+        return;
+      }
+      var siblings = allZubanNames.filter(function(n){ return n.indexOf(zuban + ' ') === 0; });
+      if(siblings.length){
+        var ok = confirm('図番「' + zuban + '」に似た名前のテンプレートが既にあります（' + siblings.join('、') + '）。\n別の図番として本当に作成しますか？');
+        if(!ok) return;
+      }
+    }
     var items = [];
     document.querySelectorAll('#tmplItemsBody tr').forEach(function(tr){
       var baseEl = tr.querySelector('.tmplBaseInput');
