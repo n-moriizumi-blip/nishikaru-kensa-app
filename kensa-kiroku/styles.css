@@ -342,11 +342,12 @@ td.tmplActions{display:flex; gap:4px; align-items:center; white-space:nowrap}
 @keyframes busySpin{ to{transform:rotate(360deg)} }
 
 .toast{
-  position:fixed; left:50%; top:calc(env(safe-area-inset-top, 0px) + 18px); transform:translateX(-50%) translateY(-8px); z-index:210;
-  background:var(--ink); color:var(--paper); padding:12px 20px; border-radius:10px; font-size:13px; font-weight:600;
+  position:fixed; left:50%; top:50%; transform:translate(-50%,-50%) scale(.97); z-index:210;
+  background:var(--ink); color:var(--paper); padding:14px 22px; border-radius:10px; font-size:13.5px; font-weight:600;
+  max-width:min(420px, calc(100vw - 32px)); text-align:center;
   box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s;
 }
-.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+.toast.show{opacity:1; transform:translate(-50%,-50%) scale(1)}
 
 .note{font-size:11.5px; color:var(--ink-faint); line-height:1.6}
 .hr{border:none; border-top:1px solid var(--border); margin:0}
