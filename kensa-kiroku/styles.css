@@ -36,7 +36,7 @@ body{
   width:30px; height:30px; border-radius:7px; background:var(--accent); color:var(--rail);
   display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; flex:none;
 }
-.brand-text{display:flex; flex-direction:column; line-height:1.25; white-space:nowrap}
+.brand-text{display:none; flex-direction:column; line-height:1.25; white-space:nowrap}
 .brand-text b{font-size:14px; font-weight:700}
 .brand-text span{font-size:10.5px; color:var(--rail-dim)}
 .nav-btn{
@@ -45,6 +45,16 @@ body{
   text-align:left; cursor:pointer; width:100%; min-height:46px; white-space:nowrap; text-decoration:none; box-sizing:border-box;
 }
 .nav-btn .ic{width:19px; text-align:center; font-size:16px; flex:none}
+/* 閉じている間はアイコンだけ見せる（西軽精機ナレッジと同じ方式）。ラベル・バッジ・
+   区切りの見出し・アカウント詳細はレールを開いた（hover/pinned）ときだけ表示する */
+.nav-btn .label, .rail-section-label, .rail-user .who{display:none}
+.rail:hover .brand-text, .rail.pinned .brand-text{display:flex}
+.rail:hover .nav-btn .label, .rail.pinned .nav-btn .label{display:inline}
+.rail:hover .rail-section-label, .rail.pinned .rail-section-label{display:block}
+.rail:hover .rail-user .who, .rail.pinned .rail-user .who{display:flex}
+/* navbadge（承認待ち件数）はhidden属性で表示有無を制御しているため、display:noneの
+   上書きで競合しないよう:not()で閉じている時だけ明示的に隠す */
+.rail:not(:hover):not(.pinned) .navbadge{display:none}
 .nav-btn:hover{background:rgba(255,255,255,.05); color:var(--rail-ink)}
 .nav-btn.active{background:var(--rail-active); color:#fff}
 .rail-nav-scroll{
