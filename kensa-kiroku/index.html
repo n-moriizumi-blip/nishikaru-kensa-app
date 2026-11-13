@@ -1232,6 +1232,9 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     renumberTmplRows();
   }
   document.getElementById('toCreateZuban').addEventListener('click', function(){
+    // 検索欄に入力済みの図番がそのまま既存・近い名前とぶつかる場合は、作成画面を開く前に
+    // ここで警告する（項目を入力してから保存時に気づくと時間が無駄になるため、2026-11-13）
+    if(!zubanDuplicateOk_(document.getElementById('zuSearch').value.trim())) return;
     document.getElementById('new-step-search').hidden = true;
     document.getElementById('new-step-create').hidden = false;
     document.getElementById('newZubanNo').disabled = false;
@@ -1310,12 +1313,12 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       insertAtCursor(lastFocusedInput, b.dataset.sym);
     });
   });
-  // 「新しい図番として作成」の場合だけ重複チェックする（既存図番の編集時はnewZubanNoが
-  // disabledなのでfalseを返さず素通りする）。完全一致は上書き事故を防ぐため作成そのものを
-  // ブロックし、「図番 部品①」のような工程違いの可能性がある近い名前は確認だけして続行できる
-  // ようにする（2026-11-13、H02-006200Bのテンプレート重複を踏まえた対応）。falseなら中止
-  function checkNewZubanDuplicate_(zuban){
-    if(!zuban || document.getElementById('newZubanNo').disabled) return true;
+  // 図番が完全一致・近い名前（工程違いの可能性）のどちらかで既存とぶつかっていないか調べる。
+  // ぶつかっていなければtrue。完全一致は上書き事故を防ぐため作成そのものをブロックしてfalseを
+  // 返し、「図番 部品①」のような近い名前は確認ダイアログの結果（続行するか）を返す
+  // （2026-11-13、H02-006200Bのテンプレート重複を踏まえた対応）
+  function zubanDuplicateOk_(zuban){
+    if(!zuban) return true;
     if(allZubanNames.indexOf(zuban) >= 0){
       toast('図番「' + zuban + '」は既にテンプレートがあります。図番ページの「✎テンプレートを編集する」から編集してください。');
       return false;
@@ -1327,14 +1330,16 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     return true;
   }
   // 保存を押すまで待つと項目入力の時間が無駄になるため、図番欄から離れた時点で先に
-  // チェックする（確認・警告のみ。ここで中止しても項目欄はそのまま残る）
+  // チェックする（確認・警告のみ。ここで中止しても項目欄はそのまま残る）。既存図番の編集時は
+  // newZubanNoがdisabledなので対象外
   document.getElementById('newZubanNo').addEventListener('blur', function(){
-    checkNewZubanDuplicate_(this.value.trim());
+    if(this.disabled) return;
+    zubanDuplicateOk_(this.value.trim());
   });
   document.getElementById('saveTmpl').addEventListener('click', function(){
     var zuban = document.getElementById('newZubanNo').value.trim();
     if(!zuban){ toast('図番を入力してください'); return; }
-    if(!checkNewZubanDuplicate_(zuban)) return;
+    if(!document.getElementById('newZubanNo').disabled && !zubanDuplicateOk_(zuban)) return;
     var items = [];
     document.querySelectorAll('#tmplItemsBody tr').forEach(function(tr){
       var baseEl = tr.querySelector('.tmplBaseInput');
