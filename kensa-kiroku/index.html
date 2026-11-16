@@ -1064,8 +1064,9 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         document.getElementById('foundSub').textContent = '図番 ' + res.zuban + ' / 得意先 ' + (res.customer || '-');
         state.zubanPage = { zuban: res.zuban, info: res.info };
       } else {
-        // 図番は分かったがテンプレートが無い図番：新規テンプレート作成へ誘導する
-        openTemplateEditorForZuban({ zuban: res.zuban, customer: res.customer, name: res.name, items: [] });
+        // 図番は分かったがテンプレートが無い図番：新規テンプレート作成へ誘導する。
+        // 材質は進捗状況照会の値（ハイフン/×より後ろを除いたもの）を初期値にする（2026-11-17）
+        openTemplateEditorForZuban({ zuban: res.zuban, customer: res.customer, name: res.name, material: res.material, items: [] });
         toast('図番 ' + res.zuban + ' のテンプレートがまだ無いため、作成画面を開きました');
       }
     }).catch(function(e){ document.getElementById('new-step-qr').hidden = false; errToast(e); });
