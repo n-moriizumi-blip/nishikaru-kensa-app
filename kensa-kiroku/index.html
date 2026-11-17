@@ -286,9 +286,14 @@
         <div class="rlist" id="qualityLogList"></div>
       </div>
 
+      <div class="card" id="improvementPlanCard" hidden style="border-color:var(--fail)">
+        <div class="card-head" style="background:var(--fail)"><h2>⚠️ 不適合改善計画書</h2><span class="note" style="color:#fff">この図番の改善計画書が見つかりました。内容を確認してください</span></div>
+        <div class="rlist" id="improvementPlanList"></div>
+      </div>
+
       <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:14px 16px; border:2px solid var(--warn); border-radius:8px; background:var(--warn-soft)">
         <label class="fl" style="display:flex; align-items:center; gap:10px; font-size:14px; font-weight:700; color:var(--accent-ink); flex:1; min-width:260px">
-          <input type="checkbox" id="zubanConfirmCheck" style="width:19px; height:19px; accent-color:var(--warn)"> ⚠️ 出荷仕様・品質情報を確認しました（検査を始めるにはチェックが必要です）
+          <input type="checkbox" id="zubanConfirmCheck" style="width:19px; height:19px; accent-color:var(--warn)"> ⚠️ 出荷仕様・品質情報・不適合改善計画書を確認しました（検査を始めるにはチェックが必要です）
         </label>
         <button class="btn btn-accent" id="startInspectFromZuban">確認して検査を始める →</button>
       </div>
@@ -1437,6 +1442,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.getElementById('zubanItemCount').textContent = '読み込み中…';
     document.getElementById('qualityLogList').innerHTML = '<div class="rempty">読み込み中…</div>';
     document.getElementById('zubanPastRecords').innerHTML = '<div class="rempty">読み込み中…</div>';
+    document.getElementById('improvementPlanCard').hidden = true;
     run('getZubanPage', zuban).then(function(res){
       if(!res.found){
         document.getElementById('zubanSub').textContent = 'この図番のテンプレートはまだありません。新規作成から登録してください';
@@ -1446,6 +1452,22 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       state.zubanPage = { zuban: zuban, info: res.info };
       document.getElementById('zubanSub').textContent = (res.info.customer || '得意先未設定') + ' / ' + (res.info.name || '品名未設定') + '　─　検査を始める前に出荷仕様・品質記録を確認してください';
       document.getElementById('zubanItemCount').textContent = '全' + res.info.items.length + '項目（抜取数はロット数に応じて検査時に自動計算）';
+
+      // 不適合改善計画書（西軽精機ナレッジの過去トラと同じDrive検索。見つかった場合だけカードを出す）
+      var plans = res.improvementPlans || [];
+      var planCard = document.getElementById('improvementPlanCard');
+      planCard.hidden = !plans.length;
+      var planList = document.getElementById('improvementPlanList');
+      planList.innerHTML = '';
+      plans.forEach(function(p){
+        var row = document.createElement('a');
+        row.className = 'rrow'; row.style.gridTemplateColumns = '1fr 20px';
+        row.href = p.url; row.target = '_blank'; row.rel = 'noopener';
+        row.style.textDecoration = 'none'; row.style.color = 'inherit';
+        row.innerHTML = '<div class="zu" style="font-size:13px"></div><span class="arrow">›</span>';
+        row.querySelector('.zu').textContent = p.name;
+        planList.appendChild(row);
+      });
 
       var sp = res.info.shipping || {};
       // 未設定の項目は先頭の空option「（未設定）」のままにする（以前は未設定でも先頭の
