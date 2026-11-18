@@ -1400,7 +1400,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   /* ---------- 図番ページ ---------- */
   var SHIPPING_SELECT_IDS = ['検査記録の添付','ミルシート','トレー梱包の種類','NG・限度見本の有無','カット品','テストピース','外観ランク','処理検査成績書添付','ロットNo.の入力','受注・客先番号の入力'];
   var tray = document.getElementById('sp_トレー梱包の種類');
-  ['無','G-050-3','5-912052-2(25個)','E-080-1','MT10-4','MT8-2','その他トレー'].forEach(function(v){
+  ['無','G-050-3','5-912052-2(25個)','E-080-1','MT8-2','MT10-4','MT-25','MT-30-13','MT-50','MT-100-3','その他トレー'].forEach(function(v){
     var o = document.createElement('option'); o.value = v; o.textContent = v; tray.appendChild(o);
   });
   function wireConditionalReveal(selectId, wrapId, showValue){
