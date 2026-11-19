@@ -1195,9 +1195,13 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     if(!v || /^[+\-－―]/.test(v) || !/^[0-9.]/.test(v)) return;
     input.value = defaultSign + v;
   }
-  function addTemplateRow(base, max, min, method, remark){
+  // 項目の並び替え・追加・削除があっても変わらないID（№はrenumberTmplRowsで位置ごとに
+  // 振り直されるため、実測値の引き継ぎ（prefill）の識別子には使えない。2026-11-19）
+  function genItemId_(){ return 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  function addTemplateRow(base, max, min, method, remark, id){
     var tbody = document.getElementById('tmplItemsBody');
     var tr = document.createElement('tr');
+    tr.dataset.itemId = id || genItemId_();
     var noTd = document.createElement('td'); noTd.className = 'tno'; tr.appendChild(noTd);
     function cell(placeholder, value, listId){
       var td = document.createElement('td');
@@ -1283,7 +1287,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.getElementById('newZubanProcess').value = info.process || '';
     document.getElementById('newZubanNote').value = info.defaultNote || '';
     document.getElementById('tmplItemsBody').innerHTML = '';
-    (info.items || []).forEach(function(it){ addTemplateRow(it.base, it.max, it.min, it.method, it.remark); });
+    (info.items || []).forEach(function(it){ addTemplateRow(it.base, it.max, it.min, it.method, it.remark, it.id); });
     if(!info.items || !info.items.length) addTemplateRow('', '', '', '', '');
     document.getElementById('zubanSendAttachCard').hidden = false;
     zubanAttachFolderChoiceCache = null;
@@ -1362,7 +1366,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     document.querySelectorAll('#tmplItemsBody tr').forEach(function(tr){
       var baseEl = tr.querySelector('.tmplBaseInput');
       var ins = tr.querySelectorAll('input[type=text]');
-      items.push({ base: baseEl ? baseEl.value : '', max: ins[0].value, min: ins[1].value, method: ins[2].value, remark: ins[3].value });
+      items.push({ base: baseEl ? baseEl.value : '', max: ins[0].value, min: ins[1].value, method: ins[2].value, remark: ins[3].value, id: tr.dataset.itemId });
     });
     run('saveZubanTemplate', {
       zuban: zuban, customer: document.getElementById('newZubanCustomer').value, name: document.getElementById('newZubanName').value,
@@ -1806,7 +1810,9 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var item = info.items[rowIdx];
       if(!item) return;
       tr.querySelectorAll('td.meas-cell input.meas').forEach(function(input){
-        if(input.value) map[item.no+'_'+input.dataset.sample] = input.value;
+        // №は保存のたびに位置で振り直されるため識別子にならない。項目の固定ID（無ければ
+        // №にフォールバック、IDが無い旧データ向け）をキーにする（2026-11-19）
+        if(input.value) map[(item.id || item.no)+'_'+input.dataset.sample] = input.value;
       });
     });
     return map;
@@ -2285,7 +2291,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       for(var s=1; s<=sampleCount; s++){
         var td = document.createElement('td'); td.className = 'meas-cell';
         var input = document.createElement('input'); input.className = 'meas'; input.placeholder = '—'; input.dataset.sample = s;
-        var pv = prefill && prefill[item.no+'_'+s];
+        var pv = prefill && prefill[(item.id || item.no)+'_'+s];
         if(fixedRemarkLabel && s === 1){ input.value = fixedRemarkLabel; input.readOnly = true; input.dataset.fixedPass = '1'; }
         else if(pv){ input.value = pv; }
         else if(isGauge && s === 1){ input.value = '通'; }
