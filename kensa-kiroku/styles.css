@@ -367,6 +367,14 @@ td.tmplActions{display:flex; gap:4px; align-items:center; white-space:nowrap}
    「今は編集できない」ことを示す） */
 input:disabled, select:disabled, textarea:disabled{background:var(--bg); color:var(--ink); cursor:not-allowed}
 
+/* 出荷仕様の項目を一目で見分けられるよう色分け（2026-11-19）。
+   「有」「必要」や詳細情報の入力があるものは要注意の暖色、外観ランクはA(良)→D(悪)の段階色 */
+.fl select.flag-on, .fl input.flag-on{background:var(--warn-soft)!important; color:var(--accent-ink); font-weight:700; border-color:var(--warn)}
+.fl select.rank-A{background:var(--ok-soft)!important; color:var(--ok); font-weight:700; border-color:var(--ok)}
+.fl select.rank-B{background:var(--bg)!important; color:var(--ink); font-weight:700; border-color:var(--border-strong)}
+.fl select.rank-C{background:var(--warn-soft)!important; color:var(--warn); font-weight:700; border-color:var(--warn)}
+.fl select.rank-D{background:var(--fail-soft)!important; color:var(--fail); font-weight:700; border-color:var(--fail)}
+
 /* 差し戻し理由などの入力をページ内で完結させるモーダル */
 .modalOverlay{
   position:fixed; inset:0; background:rgba(28,20,8,.45); z-index:100;

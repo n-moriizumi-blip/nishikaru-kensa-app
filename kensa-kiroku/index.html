@@ -404,6 +404,7 @@
         <div style="padding:16px" class="formGrid">
           <label class="fl">図番<input type="text" id="sr_zuban" list="zubanSearchSuggest" placeholder="例: B7523"></label>
           <datalist id="zubanSearchSuggest"></datalist>
+          <label class="fl">得意先<input type="text" id="sr_customer" list="customerSuggest" placeholder="例: 日機装"></label>
           <label class="fl">製造番号<input type="text" id="sr_mfgNo" placeholder="例: 24A-0981" class="mono"></label>
           <label class="fl">検査員<select id="sr_inspector"><option value="">全員</option></select></label>
           <label class="fl">承認状況<select id="sr_state"><option value="">すべて</option><option>承認済み</option><option>承認待ち</option><option>記入中</option><option>差し戻し</option></select></label>
@@ -1424,6 +1425,35 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     progEl.value = (customer ? customer + ' ' : '') + state.zubanPage.zuban;
   });
 
+  // 出荷仕様の項目を一目で見分けられるよう色分けする（2026-11-19）。「有」「必要」
+  // （「必要（手記）」含む）は検査時に注意が必要な値として色をつけ、「無」「不要」は
+  // 既定の落ち着いた表示のままにする。外観ランクはA(良)〜D(悪)の段階色、ゲージの種類・
+  // キーエンスプログラム名は入力があれば色をつける
+  var SHIPPING_FLAG_IDS = ['sp_検査記録の添付','sp_ミルシート','sp_ロットNo.の入力','sp_受注・客先番号の入力','sp_NG・限度見本の有無','sp_カット品','sp_テストピース','sp_処理検査成績書添付','gaugeHas','keyenceHas'];
+  var SHIPPING_FLAG_TEXT_IDS = ['sp_借用ゲージの種類','sp_キーエンスプログラム名'];
+  function updateShippingSpecColors_(){
+    SHIPPING_FLAG_IDS.forEach(function(id){
+      var el = document.getElementById(id);
+      if(!el) return;
+      el.classList.toggle('flag-on', el.value === '有' || el.value === '必要' || el.value === '必要（手記）');
+    });
+    SHIPPING_FLAG_TEXT_IDS.forEach(function(id){
+      var el = document.getElementById(id);
+      if(!el) return;
+      el.classList.toggle('flag-on', !!el.value.trim());
+    });
+    var rankEl = document.getElementById('sp_外観ランク');
+    ['rank-A','rank-B','rank-C','rank-D'].forEach(function(c){ rankEl.classList.remove(c); });
+    if(rankEl.value) rankEl.classList.add('rank-' + rankEl.value);
+  }
+  SHIPPING_FLAG_IDS.concat(['sp_外観ランク']).forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.addEventListener('change', updateShippingSpecColors_);
+  });
+  SHIPPING_FLAG_TEXT_IDS.forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.addEventListener('input', updateShippingSpecColors_);
+  });
   // 出荷仕様は誤操作防止のため、「編集する」を押すまで変更できない
   var SHIPPING_FIELD_IDS = ['sp_検査記録の添付','sp_ミルシート','sp_トレー梱包の種類','sp_NG・限度見本の有無','sp_カット品','sp_テストピース','gaugeHas','sp_借用ゲージの種類','keyenceHas','sp_キーエンスプログラム名','sp_外観ランク','sp_処理検査成績書添付','sp_ロットNo.の入力','sp_受注・客先番号の入力'];
   function setShippingEditable_(editable){
@@ -1483,6 +1513,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       document.getElementById('sp_キーエンスプログラム名').value = sp['キーエンスプログラム名'] || '';
       document.getElementById('gaugeTypeWrap').hidden = (document.getElementById('gaugeHas').value !== '有');
       document.getElementById('keyenceProgWrap').hidden = (document.getElementById('keyenceHas').value !== '有');
+      updateShippingSpecColors_();
       setShippingEditable_(false);
       document.getElementById('qlRankFixed').textContent = sp['外観ランク'] || '-';
 
@@ -2570,7 +2601,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   document.getElementById('searchBtn').addEventListener('click', function(){
     var zuban = document.getElementById('sr_zuban').value;
     var filter = {
-      zuban: zuban, mfgNo: document.getElementById('sr_mfgNo').value,
+      zuban: zuban, customer: document.getElementById('sr_customer').value, mfgNo: document.getElementById('sr_mfgNo').value,
       inspector: document.getElementById('sr_inspector').value, state: document.getElementById('sr_state').value,
       from: document.getElementById('sr_from').value, to: document.getElementById('sr_to').value
     };
