@@ -368,12 +368,13 @@ td.tmplActions{display:flex; gap:4px; align-items:center; white-space:nowrap}
 input:disabled, select:disabled, textarea:disabled{background:var(--bg); color:var(--ink); cursor:not-allowed}
 
 /* 出荷仕様の項目を一目で見分けられるよう色分け（2026-11-19）。
-   「有」「必要」や詳細情報の入力があるものは要注意の暖色、外観ランクはA(良)→D(悪)の段階色 */
+   「有」「必要」や詳細情報の入力があるものは要注意の暖色。外観ランクはA(最も要注意)→
+   D(注意度が下がる)の段階色（2026-11-19訂正：A=良ではなくA=最も要注意だった） */
 .fl select.flag-on, .fl input.flag-on{background:var(--warn-soft)!important; color:var(--accent-ink); font-weight:700; border-color:var(--warn)}
-.fl select.rank-A{background:var(--ok-soft)!important; color:var(--ok); font-weight:700; border-color:var(--ok)}
-.fl select.rank-B{background:var(--bg)!important; color:var(--ink); font-weight:700; border-color:var(--border-strong)}
-.fl select.rank-C{background:var(--warn-soft)!important; color:var(--warn); font-weight:700; border-color:var(--warn)}
-.fl select.rank-D{background:var(--fail-soft)!important; color:var(--fail); font-weight:700; border-color:var(--fail)}
+.fl select.rank-A{background:var(--fail-soft)!important; color:var(--fail); font-weight:700; border-color:var(--fail)}
+.fl select.rank-B{background:var(--warn-soft)!important; color:var(--warn); font-weight:700; border-color:var(--warn)}
+.fl select.rank-C{background:var(--bg)!important; color:var(--ink); font-weight:700; border-color:var(--border-strong)}
+.fl select.rank-D{background:var(--ok-soft)!important; color:var(--ok); font-weight:700; border-color:var(--ok)}
 
 /* 差し戻し理由などの入力をページ内で完結させるモーダル */
 .modalOverlay{
