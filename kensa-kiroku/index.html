@@ -1384,21 +1384,20 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     }).catch(errToast);
   });
   // 検査入力画面からテンプレートを編集・保存した場合はそのまま検査入力画面へ戻る。
-  // 項目が変わっている可能性があるため、保存直後の最新テンプレートで表を組み直し、
-  // 既に入力済みの実測値は№が一致する項目にそのまま引き継ぐ（2026-11-05）
+  // 項目が変わっている可能性があるため、保存直後の最新テンプレートで表を組み直す。
+  // 実測値を「集めて→作り直して→書き戻す」のではなく、既存の入力欄（DOM要素そのもの）を
+  // 項目IDが一致する限りそのまま再利用するreconcileItemsTable_を使うため、対応付けの
+  // ズレによる実測値消失が構造的に起こり得ない（2026-11-20、実測値消失事故の根本対応）
   function returnToInspectAfterTemplateSave_(zuban){
-    var prefill = collectCurrentMeasurements_();
     run('getZubanPage', zuban).then(function(res){
       if(res.found){
+        reconcileItemsTable_(res.info.items);
         state.inspect.info.items = res.info.items;
         state.inspect.info.material = res.info.material;
         state.inspect.info.process = res.info.process;
         state.inspect.info.shipping = res.info.shipping;
       }
       go('inspect');
-      var sampleCount = parseInt(document.getElementById('in_sampleCount').value, 10) || DEFAULT_SAMPLE_COUNT;
-      buildItemsTable(state.inspect.info.items, sampleCount, prefill, !state.inspectEditable);
-      verifyPrefillApplied_(prefill);
       setupCertCard_();
     }).catch(errToast);
   }
@@ -1834,25 +1833,12 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     return 13;
   }
   var sampleCountTouched = false;
-  function collectCurrentMeasurements_(){
-    var map = {};
-    var info = state.inspect && state.inspect.info;
-    if(!info) return map;
-    document.querySelectorAll('#itemsTable tbody tr').forEach(function(tr, rowIdx){
-      var item = info.items[rowIdx];
-      if(!item) return;
-      tr.querySelectorAll('td.meas-cell input.meas').forEach(function(input){
-        // №は保存のたびに位置で振り直されるため識別子にならない。項目の固定ID（無ければ
-        // №にフォールバック、IDが無い旧データ向け）をキーにする（2026-11-19）
-        if(input.value) map[(item.id || item.no)+'_'+input.dataset.sample] = input.value;
-      });
-    });
-    return map;
-  }
-  // 実測値消失事故（2026-11-20）の再発防止その1：抜取数変更・テンプレート編集後の
-  // 表の組み直しで実測値を引き継ぐ際、引き継ぐはずだった件数に対して実際に表に反映された
-  // 件数が大きく下回っていたら、保存される前にその場で気づけるようにする（保存はまだしていない
-  // 時点での早期警告。実際に保存を止めるガードは下のdetectSuspiciousDrop_側）
+  // 実測値消失事故（2026-11-20）の根本対応：記録を新規に開いた直後（DBの保存値を
+  // 初めて表に反映する時）だけは「値を集めて→対応付けて→書き戻す」工程が避けられないため、
+  // 引き継ぐはずだった件数に対して実際に反映された件数が大きく下回っていないか検証する
+  // （保存される前にその場で気づける早期警告）。それ以外の表の組み直し（抜取数変更・
+  // テンプレート編集後の復帰）は、下のadjustSampleColumns_・reconcileItemsTable_が
+  // 既存の入力欄（DOM要素そのもの）をそのまま使い回すため、この検証自体が不要になった
   function countFilledMeasCells_(){
     var n = 0;
     document.querySelectorAll('#itemsTable tbody input.meas').forEach(function(input){ if(input.value) n++; });
@@ -1867,20 +1853,52 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       toast('⚠ 実測値の引き継ぎに失敗した可能性があります。下書き保存せずに画面を再読み込みして確認してください。');
     }
   }
-  function applySampleCount_(count, readOnly){
+  // 抜取数の変更で実測値欄の列数だけを増減する。既存のサンプル列（入力欄のDOM要素）は
+  // 一切壊さずそのまま残し、新しく増えた列だけを追加・無くなった列だけを削除する。
+  // 「値を集めて作り直して書き戻す」という工程自体が無いため、対応付けのズレによる
+  // 実測値消失が構造的に起こり得ない（2026-11-20、実測値消失事故の根本対応）
+  function adjustSampleColumns_(newCount){
     if(!state.inspect) return;
-    var prefill = collectCurrentMeasurements_();
-    document.getElementById('in_sampleCount').value = count;
-    buildItemsTable(state.inspect.info.items, sampleColsForZuban_(state.inspect.zuban, count), prefill, !!readOnly);
-    verifyPrefillApplied_(prefill);
+    if(newCount > INSPECT_SAMPLE_COLS_MAX) newCount = INSPECT_SAMPLE_COLS_MAX;
+    document.getElementById('in_sampleCount').value = newCount;
+    var items = state.inspect.info.items;
+    var headRow = document.getElementById('itemsHeadRow');
+    var curCount = headRow.querySelectorAll('th').length - 5;
+    document.getElementById('inspectItemsHead').textContent = '検査項目（全' + items.length + '項目・抜取' + newCount + '個）';
+    if(newCount === curCount) return;
+    var readOnly = !state.inspectEditable;
+    if(newCount > curCount){
+      for(var s = curCount + 1; s <= newCount; s++){
+        var th = document.createElement('th'); th.textContent = s; headRow.appendChild(th);
+      }
+      document.querySelectorAll('#itemsTable tbody tr').forEach(function(tr, rowIdx){
+        var item = items[rowIdx];
+        if(!item) return;
+        var isGauge = !readOnly && GAUGE_METHODS.indexOf(normMethod_(item.method)) >= 0;
+        var remarkText = item.remark || '';
+        var fixedRemarkLabel = remarkText.indexOf('測定不可') >= 0 ? '測定不可' : (remarkText.indexOf('刃物形状') >= 0 ? '刃物形状' : null);
+        for(var s2 = curCount + 1; s2 <= newCount; s2++){
+          tr.appendChild(buildMeasCell_(item, s2, isGauge, fixedRemarkLabel, readOnly, null));
+        }
+      });
+    } else {
+      document.querySelectorAll('#itemsTable tbody tr').forEach(function(tr){
+        var cells = tr.querySelectorAll('td.meas-cell');
+        for(var i = cells.length - 1; i >= newCount; i--){ cells[i].remove(); }
+      });
+      var headCells = headRow.querySelectorAll('th');
+      for(var i = headCells.length - 1; i >= 5 + newCount; i--){ headCells[i].remove(); }
+    }
+    judge();
+  }
+  function applySampleCount_(count){
+    adjustSampleColumns_(sampleColsForZuban_(state.inspect && state.inspect.zuban, count));
   }
   document.getElementById('in_sampleCount').addEventListener('input', function(){
     sampleCountTouched = true;
     var n = parseInt(this.value, 10);
     if(!isNaN(n) && n > 0 && state.inspect){
-      var prefill = collectCurrentMeasurements_();
-      buildItemsTable(state.inspect.info.items, sampleColsForZuban_(state.inspect.zuban, n), prefill, false);
-      verifyPrefillApplied_(prefill);
+      adjustSampleColumns_(sampleColsForZuban_(state.inspect.zuban, n));
     }
   });
   document.getElementById('in_lotCount').addEventListener('input', function(){
@@ -2332,45 +2350,120 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   // PDF側は実測値欄が常に1〜15列固定（Pdf.gsのPDF_SAMPLE_COLS）のため、画面側の入力欄も
   // 抜取数が15を超える場合は15までしか表示しない（それ以上入力してもPDFに載らないため）
   var INSPECT_SAMPLE_COLS_MAX = 15;
-  function buildItemsTable(items, sampleCount, prefill, readOnly){
-    if(sampleCount > INSPECT_SAMPLE_COLS_MAX) sampleCount = INSPECT_SAMPLE_COLS_MAX;
-    document.getElementById('inspectItemsHead').textContent = '検査項目（全' + items.length + '項目・抜取' + sampleCount + '個）';
+  function renderItemsHeader_(itemCount, sampleCount){
+    document.getElementById('inspectItemsHead').textContent = '検査項目（全' + itemCount + '項目・抜取' + sampleCount + '個）';
     var headRow = document.getElementById('itemsHeadRow'); headRow.innerHTML = '';
     ['№','基準値','公差MAX','公差MIN','測定方法'].forEach(function(t){ var th = document.createElement('th'); th.textContent = t; headRow.appendChild(th); });
     for(var s=1; s<=sampleCount; s++){ var sh = document.createElement('th'); sh.textContent = s; headRow.appendChild(sh); }
-
+  }
+  // 実測値欄1マス分の<td>を作る。buildItemRow_（行を1から作る）・adjustSampleColumns_
+  // （既存行に列を追加する）の両方から共通で使う
+  function buildMeasCell_(item, sampleIndex, isGauge, fixedRemarkLabel, readOnly, prefill){
+    var td = document.createElement('td'); td.className = 'meas-cell';
+    var input = document.createElement('input'); input.className = 'meas'; input.placeholder = '—'; input.dataset.sample = sampleIndex;
+    var pv = prefill && prefill[(item.id || item.no)+'_'+sampleIndex];
+    // 「測定不可」「刃物形状」は実測値欄に固定表示するため、基準値欄側には重ねて出さない
+    // （他の備考（(研磨前)等）はこれまで通り基準値欄に表示する、2026-11-06）
+    if(fixedRemarkLabel && sampleIndex === 1){ input.value = fixedRemarkLabel; input.readOnly = true; input.dataset.fixedPass = '1'; }
+    else if(pv){ input.value = pv; }
+    else if(isGauge && sampleIndex === 1){ input.value = '通'; }
+    else if(isGauge && sampleIndex === 2){ input.value = '止'; }
+    if(readOnly) input.disabled = true;
+    td.appendChild(input);
+    return td;
+  }
+  // 項目1件分の<tr>を1から作る（新規項目用）。tr.dataset.itemKeyに項目の固定IDを
+  // 持たせておき、reconcileItemsTable_が後からこの行を再利用できるようにする
+  function buildItemRow_(item, sampleCount, readOnly, prefill){
+    var tr = document.createElement('tr');
+    tr.dataset.itemKey = String(item.id || item.no);
+    var base = nominalTol(item.base), max = parseTol(item.max), min = parseTol(item.min);
+    if(base !== null && max !== null && min !== null){ tr.dataset.base = base; tr.dataset.max = max; tr.dataset.min = min; }
+    var baseRemark = (item.remark || '').split('/').filter(function(r){ return r !== '測定不可' && r !== '刃物形状'; }).join('/');
+    var baseDisplay = item.base + (baseRemark ? '　' + baseRemark : '');
+    var noTd = document.createElement('td'); noTd.className = 'num'; noTd.textContent = item.no; tr.appendChild(noTd);
+    [baseDisplay, item.max, item.min].forEach(function(v){
+      var td = document.createElement('td'); td.className = 'num'; td.innerHTML = bigSymHtml_(v); tr.appendChild(td);
+    });
+    var mTd = document.createElement('td'); mTd.className = 'num'; mTd.textContent = item.method; tr.appendChild(mTd);
+    var isGauge = !readOnly && GAUGE_METHODS.indexOf(normMethod_(item.method)) >= 0;
+    // 備考が「測定不可」「刃物形状」の項目は、サンプルごとに実測値を取らず、1つ目の
+    // 実測値欄に備考の文字をそのまま固定表示する（編集不可、2026-11-06）
+    var remarkText = item.remark || '';
+    var fixedRemarkLabel = remarkText.indexOf('測定不可') >= 0 ? '測定不可' : (remarkText.indexOf('刃物形状') >= 0 ? '刃物形状' : null);
+    for(var s=1; s<=sampleCount; s++){
+      tr.appendChild(buildMeasCell_(item, s, isGauge, fixedRemarkLabel, readOnly, prefill));
+    }
+    return tr;
+  }
+  function buildItemsTable(items, sampleCount, prefill, readOnly){
+    if(sampleCount > INSPECT_SAMPLE_COLS_MAX) sampleCount = INSPECT_SAMPLE_COLS_MAX;
+    renderItemsHeader_(items.length, sampleCount);
     var body = document.getElementById('itemsBody'); body.innerHTML = '';
-    items.forEach(function(item){
-      var tr = document.createElement('tr');
-      var base = nominalTol(item.base), max = parseTol(item.max), min = parseTol(item.min);
-      if(base !== null && max !== null && min !== null){ tr.dataset.base = base; tr.dataset.max = max; tr.dataset.min = min; }
-      // 「測定不可」「刃物形状」は実測値欄に固定表示するため、基準値欄側には重ねて出さない
-      // （他の備考（(研磨前)等）はこれまで通り基準値欄に表示する、2026-11-06）
-      var baseRemark = (item.remark || '').split('/').filter(function(r){ return r !== '測定不可' && r !== '刃物形状'; }).join('/');
-      var baseDisplay = item.base + (baseRemark ? '　' + baseRemark : '');
-      var noTd = document.createElement('td'); noTd.className = 'num'; noTd.textContent = item.no; tr.appendChild(noTd);
-      [baseDisplay, item.max, item.min].forEach(function(v){
-        var td = document.createElement('td'); td.className = 'num'; td.innerHTML = bigSymHtml_(v); tr.appendChild(td);
-      });
-      var mTd = document.createElement('td'); mTd.className = 'num'; mTd.textContent = item.method; tr.appendChild(mTd);
+    items.forEach(function(item){ body.appendChild(buildItemRow_(item, sampleCount, readOnly, prefill)); });
+    judge();
+  }
+  // 既存行（再利用する<tr>）のラベル列（№・基準値・公差MAX/MIN・測定方法）だけを
+  // 最新のテンプレート内容に更新する。実測値の入力欄（meas-cell側）には一切触れない
+  function updateItemRowLabels_(tr, item){
+    var base = nominalTol(item.base), max = parseTol(item.max), min = parseTol(item.min);
+    if(base !== null && max !== null && min !== null){ tr.dataset.base = base; tr.dataset.max = max; tr.dataset.min = min; }
+    else { delete tr.dataset.base; delete tr.dataset.max; delete tr.dataset.min; }
+    var baseRemark = (item.remark || '').split('/').filter(function(r){ return r !== '測定不可' && r !== '刃物形状'; }).join('/');
+    var baseDisplay = item.base + (baseRemark ? '　' + baseRemark : '');
+    var labelCells = tr.querySelectorAll('td.num');
+    labelCells[0].textContent = item.no;
+    labelCells[1].innerHTML = bigSymHtml_(baseDisplay);
+    labelCells[2].innerHTML = bigSymHtml_(item.max);
+    labelCells[3].innerHTML = bigSymHtml_(item.min);
+    labelCells[4].textContent = item.method;
+  }
+  // 既存行の実測値欄の列数を、増えた分だけ追加・減った分だけ削除して最新のサンプル数に
+  // 合わせる。既にある列（入力欄のDOM要素）には一切触れない
+  function matchRowSampleColumns_(tr, item, sampleCount, readOnly){
+    var cells = tr.querySelectorAll('td.meas-cell');
+    if(sampleCount > cells.length){
       var isGauge = !readOnly && GAUGE_METHODS.indexOf(normMethod_(item.method)) >= 0;
-      // 備考が「測定不可」「刃物形状」の項目は、サンプルごとに実測値を取らず、1つ目の
-      // 実測値欄に備考の文字をそのまま固定表示する（編集不可、2026-11-06）
       var remarkText = item.remark || '';
       var fixedRemarkLabel = remarkText.indexOf('測定不可') >= 0 ? '測定不可' : (remarkText.indexOf('刃物形状') >= 0 ? '刃物形状' : null);
-      for(var s=1; s<=sampleCount; s++){
-        var td = document.createElement('td'); td.className = 'meas-cell';
-        var input = document.createElement('input'); input.className = 'meas'; input.placeholder = '—'; input.dataset.sample = s;
-        var pv = prefill && prefill[(item.id || item.no)+'_'+s];
-        if(fixedRemarkLabel && s === 1){ input.value = fixedRemarkLabel; input.readOnly = true; input.dataset.fixedPass = '1'; }
-        else if(pv){ input.value = pv; }
-        else if(isGauge && s === 1){ input.value = '通'; }
-        else if(isGauge && s === 2){ input.value = '止'; }
-        if(readOnly) input.disabled = true;
-        td.appendChild(input); tr.appendChild(td);
+      for(var s = cells.length + 1; s <= sampleCount; s++){
+        tr.appendChild(buildMeasCell_(item, s, isGauge, fixedRemarkLabel, readOnly, null));
       }
-      body.appendChild(tr);
+    } else if(sampleCount < cells.length){
+      for(var i = cells.length - 1; i >= sampleCount; i--){ cells[i].remove(); }
+    }
+  }
+  // テンプレート編集後に検査入力画面へ戻った時、表を1から作り直すのではなく既存の
+  // 項目行と突き合わせて更新する。項目ID（tr.dataset.itemKey）が一致する行は、実測値の
+  // 入力欄（DOM要素そのもの）をそのまま再利用し、ラベル列だけ最新内容に更新する。
+  // 新規項目は新しい行を作り、削除された項目の行は捨てる（その項目自体が無くなったため
+  // 実測値も無くなるのは意図通り）。「値を集めて→対応付けて→書き戻す」という工程自体が
+  // 無いため、対応付けのズレによる実測値消失が構造的に起こり得ない
+  // （2026-11-20、実測値消失事故の根本対応）
+  function reconcileItemsTable_(newItems){
+    var sampleCount = parseInt(document.getElementById('in_sampleCount').value, 10) || DEFAULT_SAMPLE_COUNT;
+    if(sampleCount > INSPECT_SAMPLE_COLS_MAX) sampleCount = INSPECT_SAMPLE_COLS_MAX;
+    var readOnly = !state.inspectEditable;
+    var oldRowsByKey = {};
+    document.querySelectorAll('#itemsTable tbody tr').forEach(function(tr){
+      if(tr.dataset.itemKey) oldRowsByKey[tr.dataset.itemKey] = tr;
     });
+    var frag = document.createDocumentFragment();
+    newItems.forEach(function(item){
+      var key = String(item.id || item.no);
+      var reused = oldRowsByKey[key];
+      if(reused){
+        updateItemRowLabels_(reused, item);
+        matchRowSampleColumns_(reused, item, sampleCount, readOnly);
+        frag.appendChild(reused);
+      } else {
+        frag.appendChild(buildItemRow_(item, sampleCount, readOnly, null));
+      }
+    });
+    var body = document.getElementById('itemsBody');
+    body.innerHTML = '';
+    body.appendChild(frag);
+    renderItemsHeader_(newItems.length, sampleCount);
     judge();
   }
   // PCのキーボード操作：Enter/↓で下のセルへ、↑で上のセルへ、←→は入力欄の端にカーソルが
