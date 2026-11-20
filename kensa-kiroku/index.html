@@ -1442,11 +1442,14 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       if(!el) return;
       el.classList.toggle('flag-on', !!el.value.trim());
     });
+    // トレー梱包の種類は「無」以外（具体的なトレー種類が選ばれている）を要注意として色をつける
+    var trayEl = document.getElementById('sp_トレー梱包の種類');
+    if(trayEl) trayEl.classList.toggle('flag-on', !!trayEl.value && trayEl.value !== '無');
     var rankEl = document.getElementById('sp_外観ランク');
     ['rank-A','rank-B','rank-C','rank-D'].forEach(function(c){ rankEl.classList.remove(c); });
     if(rankEl.value) rankEl.classList.add('rank-' + rankEl.value);
   }
-  SHIPPING_FLAG_IDS.concat(['sp_外観ランク']).forEach(function(id){
+  SHIPPING_FLAG_IDS.concat(['sp_外観ランク', 'sp_トレー梱包の種類']).forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.addEventListener('change', updateShippingSpecColors_);
   });
