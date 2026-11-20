@@ -1398,6 +1398,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       go('inspect');
       var sampleCount = parseInt(document.getElementById('in_sampleCount').value, 10) || DEFAULT_SAMPLE_COUNT;
       buildItemsTable(state.inspect.info.items, sampleCount, prefill, !state.inspectEditable);
+      verifyPrefillApplied_(prefill);
       setupCertCard_();
     }).catch(errToast);
   }
@@ -1848,11 +1849,30 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     });
     return map;
   }
+  // 実測値消失事故（2026-11-20）の再発防止その1：抜取数変更・テンプレート編集後の
+  // 表の組み直しで実測値を引き継ぐ際、引き継ぐはずだった件数に対して実際に表に反映された
+  // 件数が大きく下回っていたら、保存される前にその場で気づけるようにする（保存はまだしていない
+  // 時点での早期警告。実際に保存を止めるガードは下のdetectSuspiciousDrop_側）
+  function countFilledMeasCells_(){
+    var n = 0;
+    document.querySelectorAll('#itemsTable tbody input.meas').forEach(function(input){ if(input.value) n++; });
+    return n;
+  }
+  function verifyPrefillApplied_(prefill){
+    var attempted = Object.keys(prefill || {}).length;
+    if(attempted < 3) return; // 元々少ない場合は誤検知が多いので対象外
+    var actual = countFilledMeasCells_();
+    if(actual < attempted * 0.3){
+      state.inspect.dataLossSuspected = true;
+      toast('⚠ 実測値の引き継ぎに失敗した可能性があります。下書き保存せずに画面を再読み込みして確認してください。');
+    }
+  }
   function applySampleCount_(count, readOnly){
     if(!state.inspect) return;
     var prefill = collectCurrentMeasurements_();
     document.getElementById('in_sampleCount').value = count;
     buildItemsTable(state.inspect.info.items, sampleColsForZuban_(state.inspect.zuban, count), prefill, !!readOnly);
+    verifyPrefillApplied_(prefill);
   }
   document.getElementById('in_sampleCount').addEventListener('input', function(){
     sampleCountTouched = true;
@@ -1860,6 +1880,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     if(!isNaN(n) && n > 0 && state.inspect){
       var prefill = collectCurrentMeasurements_();
       buildItemsTable(state.inspect.info.items, sampleColsForZuban_(state.inspect.zuban, n), prefill, false);
+      verifyPrefillApplied_(prefill);
     }
   });
   document.getElementById('in_lotCount').addEventListener('input', function(){
@@ -1870,7 +1891,9 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
 
   function openInspect(zuban, info){
     go('inspect');
-    state.inspect = { zuban: zuban, info: info, recordId: null, dirty: true, attachments: [] };
+    // lastGoodFilledCount・dataLossSuspectedは実測値消失事故（2026-11-20）の再発防止の
+    // ためのガード用状態。新規作成は実測値0件から始まるので0を基準にする
+    state.inspect = { zuban: zuban, info: info, recordId: null, dirty: true, attachments: [], lastGoodFilledCount: 0, dataLossSuspected: false };
     sampleCountTouched = false;
     document.getElementById('inspectTitle').textContent = zuban;
     document.getElementById('inspectSub').textContent = (info.customer || '') + ' / 新規作成';
@@ -2015,10 +2038,14 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var mode = (r['状態'] === '承認済み') ? 'view' : (r['状態'] === '承認待ち') ? 'review' : 'edit';
       var tmpl = recordToTemplate_(r, res.items, res.template);
       go('inspect');
+      // lastGoodFilledCountは、DBに既に保存されている実測値の件数（＝これより大きく
+      // 減った状態を保存しようとしたら要注意、というガードの基準値）。2026-11-20、
+      // 実測値消失事故の再発防止のため追加
       state.inspect = {
         zuban: r['図番'],
         info: { zuban: r['図番'], customer: tmpl.customer, items: tmpl.items, defaultSampleCount: tmpl.sampleCount, shipping: res.shipping },
-        recordId: recordId, dirty: true, attachments: res.attachments || []
+        recordId: recordId, dirty: true, attachments: res.attachments || [],
+        lastGoodFilledCount: Object.keys(tmpl.prefill || {}).length, dataLossSuspected: false
       };
       sampleCountTouched = false;
       document.getElementById('inspectTitle').textContent = r['図番'];
@@ -2043,6 +2070,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       if(r['PDFファイルID']){ pdfBtn.hidden = false; pdfBtn.href = 'https://drive.google.com/file/d/' + r['PDFファイルID'] + '/view'; document.getElementById('viewSendAttachBtn').hidden = false; }
       else { pdfBtn.hidden = true; document.getElementById('viewSendAttachBtn').hidden = true; }
       buildItemsTable(tmpl.items, sampleColsForZuban_(r['図番'], tmpl.sampleCount), tmpl.prefill, mode !== 'edit');
+      if(mode === 'edit') verifyPrefillApplied_(tmpl.prefill);
       setInspectMode_(mode, r);
       setupCertCard_();
     }).catch(errToast);
@@ -2448,6 +2476,17 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       orderNo: document.getElementById('in_orderNo').value, note: document.getElementById('in_note').value, items: items
     };
   }
+  // 実測値消失事故（2026-11-20）の再発防止その2：保存・自動保存・承認依頼の直前に必ず
+  // 通すガード。前回正常に保存できた時点の件数（lastGoodFilledCount）から9割以上
+  // 減っている場合に「何かおかしい」とみなす。抜取数やテンプレートを意図的に変更して
+  // 件数が多少減るのは正常範囲のため対象にせず、激減だけを検知する設計にしてある
+  var DATA_LOSS_GUARD_MIN = 5;
+  function detectSuspiciousDrop_(newCount){
+    if(!state.inspect) return false;
+    var prev = state.inspect.lastGoodFilledCount || 0;
+    if(prev < DATA_LOSS_GUARD_MIN) return false;
+    return newCount < prev * 0.1;
+  }
   // 自動保存(autoSaveTick)と手動の下書き保存ボタンが同時に走ると、まだ記録IDが
   // 無い最初の1回だけ、お互いが別々に新規レコードを作ってしまう恐れがある（記録ID確定後は
   // 両方とも同じ行を更新するだけなので問題ない）。最初の1回だけ進行中の保存を待って同じ
@@ -2470,8 +2509,13 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   document.getElementById('saveDraftBtn').addEventListener('click', function(){
     if(!state.inspect){ go('home'); return; }
     var payload = collectInspectPayload_();
+    if(detectSuspiciousDrop_(payload.items.length)){
+      if(!confirm('⚠ 実測値が大幅に減っています（前回保存時: ' + state.inspect.lastGoodFilledCount + '件 → 今回: ' + payload.items.length + '件）。\n何らかの不具合で消えている可能性があります。このまま保存すると元のデータは失われます。本当に保存しますか？')) return;
+    }
     saveDraftRecord_(payload, run).then(function(res){
       state.inspect.recordId = res.recordId;
+      state.inspect.lastGoodFilledCount = payload.items.length;
+      state.inspect.dataLossSuspected = false;
       toast('下書きを保存しました。');
     }).catch(errToast);
   });
@@ -2491,8 +2535,17 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   function autoSaveTick(){
     if(!state.inspect || !state.inspectEditable) return;
     if(document.getElementById('view-inspect').hidden) return;
-    saveDraftRecord_(collectInspectPayload_(), runSilent).then(function(res){
+    var payload = collectInspectPayload_();
+    if(detectSuspiciousDrop_(payload.items.length)){
+      // 自動保存は確認なしで必ず上書きしてしまうため、怪しい時は保存自体をスキップする
+      // のが最も安全（2026-11-20、実測値消失事故の再発防止。手動の下書き保存・承認依頼は
+      // 確認ダイアログでユーザーが判断できるが、自動保存にその手段が無いため）
+      document.getElementById('autoSaveIndicator').textContent = '⚠ 実測値が大幅に減っているため自動保存を中断しました（保存せず画面を再読み込みして確認してください）';
+      return;
+    }
+    saveDraftRecord_(payload, runSilent).then(function(res){
       state.inspect.recordId = res.recordId;
+      state.inspect.lastGoodFilledCount = payload.items.length;
       document.getElementById('autoSaveIndicator').textContent = '自動保存済み ' + new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
     }).catch(function(){
       // 失敗の詳細はトーストで毎回出さない（頻繁に鬱陶しくなるため）が、「保存できていない」
@@ -2536,9 +2589,13 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       return;
     }
     var payload = collectInspectPayload_();
+    if(detectSuspiciousDrop_(payload.items.length)){
+      if(!confirm('⚠ 実測値が大幅に減っています（前回保存時: ' + state.inspect.lastGoodFilledCount + '件 → 今回: ' + payload.items.length + '件）。\n何らかの不具合で消えている可能性があります。このまま送信すると元のデータは失われます。本当に送信しますか？')) return;
+    }
     payload.approverName = document.getElementById('approverSelect').value;
     run('saveInspectionRecord', payload, '承認待ち').then(function(){
       state.inspect.dirty = false;
+      state.inspect.lastGoodFilledCount = payload.items.length;
       toast('承認依頼を送信しました。');
       go('home');
     }).catch(errToast);
