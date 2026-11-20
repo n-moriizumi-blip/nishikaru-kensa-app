@@ -1983,7 +1983,11 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   function recordToTemplate_(record, items, template){
     var tmplItems;
     if(template && template.length){
-      tmplItems = template.map(function(it){ return { no: it.no, base: it.base, max: it.max, min: it.min, method: it.method, remark: it.remark }; });
+      // idも引き継ぐ（2026-11-20修正）。ここで渡し忘れると、記録を開いた直後はprefillが
+      // №ベースで作られているため表示は合うが、その後テンプレートを編集して保存すると
+      // 最新テンプレート（idあり）に切り替わった瞬間にキーが食い違い、実測値が消えて見える
+      // 不具合があった
+      tmplItems = template.map(function(it){ return { no: it.no, base: it.base, max: it.max, min: it.min, method: it.method, remark: it.remark, id: it.id }; });
     } else {
       var seen = {}; tmplItems = [];
       items.forEach(function(it){
@@ -1994,8 +1998,15 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     var sampleCount = Number(record['抜取数']) || 0;
     items.forEach(function(it){ sampleCount = Math.max(sampleCount, Number(it['サンプルNo']) || 0); });
     if(!sampleCount) sampleCount = 15;
+    // 項目値シート自体にはidが無く№だけなので、現在のテンプレート項目のno→idを引いてから
+    // キーを作る（buildItemsTableの参照先と必ず一致させるため、上のid引き継ぎとセットで直す）
+    var noToId = {}; tmplItems.forEach(function(it){ noToId[it.no] = it.id; });
     var prefill = {};
-    items.forEach(function(it){ if(it['実測値']) prefill[it['№']+'_'+it['サンプルNo']] = it['実測値']; });
+    items.forEach(function(it){
+      if(!it['実測値']) return;
+      var key = (noToId[it['№']] || it['№']) + '_' + it['サンプルNo'];
+      prefill[key] = it['実測値'];
+    });
     return { items: tmplItems, sampleCount: sampleCount, prefill: prefill, customer: record['得意先'] };
   }
   function openInspectForRecord(recordId){
