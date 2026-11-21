@@ -1860,15 +1860,23 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   // 一切壊さずそのまま残し、新しく増えた列だけを追加・無くなった列だけを削除する。
   // 「値を集めて作り直して書き戻す」という工程自体が無いため、対応付けのズレによる
   // 実測値消失が構造的に起こり得ない（2026-11-20、実測値消失事故の根本対応）
-  function adjustSampleColumns_(newCount){
+  // allowShrinkがfalseの間は列を減らさない（追加のみ行う）。ロット数・抜取数欄は
+  // 入力の途中経過（例:「500」を打つ途中の「5」「50」）でも毎回inputイベントが発火し、
+  // その時点のサンプル数が一時的に本来より小さくなることがある。ここで即座に列を物理削除
+  // すると、最終的に入力し終えた時にはもう戻らない実測値消失になる（2026-11-21発覚）。
+  // 入力中（input）は増やすだけにしておき、確定時（change＝フォーカスが外れた時）に
+  // allowShrink:trueで呼んで本当に不要な列だけを削除する
+  function adjustSampleColumns_(newCount, opts){
     if(!state.inspect) return;
     if(newCount > INSPECT_SAMPLE_COLS_MAX) newCount = INSPECT_SAMPLE_COLS_MAX;
-    document.getElementById('in_sampleCount').value = newCount;
-    var items = state.inspect.info.items;
+    var allowShrink = !opts || opts.allowShrink !== false;
     var headRow = document.getElementById('itemsHeadRow');
     var curCount = headRow.querySelectorAll('th').length - 5;
-    document.getElementById('inspectItemsHead').textContent = '検査項目（全' + items.length + '項目・抜取' + newCount + '個）';
+    if(newCount < curCount && !allowShrink) return;
     if(newCount === curCount) return;
+    document.getElementById('in_sampleCount').value = newCount;
+    var items = state.inspect.info.items;
+    document.getElementById('inspectItemsHead').textContent = '検査項目（全' + items.length + '項目・抜取' + newCount + '個）';
     var readOnly = !state.inspectEditable;
     if(newCount > curCount){
       for(var s = curCount + 1; s <= newCount; s++){
@@ -1894,20 +1902,33 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     }
     judge();
   }
-  function applySampleCount_(count){
-    adjustSampleColumns_(sampleColsForZuban_(state.inspect && state.inspect.zuban, count));
+  function applySampleCount_(count, opts){
+    adjustSampleColumns_(sampleColsForZuban_(state.inspect && state.inspect.zuban, count), opts);
   }
   document.getElementById('in_sampleCount').addEventListener('input', function(){
     sampleCountTouched = true;
     var n = parseInt(this.value, 10);
     if(!isNaN(n) && n > 0 && state.inspect){
-      adjustSampleColumns_(sampleColsForZuban_(state.inspect.zuban, n));
+      adjustSampleColumns_(sampleColsForZuban_(state.inspect.zuban, n), { allowShrink: false });
+    }
+  });
+  // 入力中に一時的に小さくなったサンプル数のまま確定してしまわないよう、フォーカスが
+  // 外れた時点（change）に改めて最終的な値で呼び、本当に減らすべき列だけを削除する
+  document.getElementById('in_sampleCount').addEventListener('change', function(){
+    var n = parseInt(this.value, 10);
+    if(!isNaN(n) && n > 0 && state.inspect){
+      adjustSampleColumns_(sampleColsForZuban_(state.inspect.zuban, n), { allowShrink: true });
     }
   });
   document.getElementById('in_lotCount').addEventListener('input', function(){
     if(sampleCountTouched) return;
     var n = sampleCountForLot_(document.getElementById('in_lotCount').value);
-    if(n !== null) applySampleCount_(n);
+    if(n !== null) applySampleCount_(n, { allowShrink: false });
+  });
+  document.getElementById('in_lotCount').addEventListener('change', function(){
+    if(sampleCountTouched) return;
+    var n = sampleCountForLot_(document.getElementById('in_lotCount').value);
+    if(n !== null) applySampleCount_(n, { allowShrink: true });
   });
 
   function openInspect(zuban, info){
