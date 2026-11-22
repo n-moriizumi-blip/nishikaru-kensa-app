@@ -33,8 +33,7 @@ body{
 }
 .rail-brand{display:flex; align-items:center; gap:9px; padding:18px 8px 16px; cursor:pointer; flex:none}
 .rail-brand .mark{
-  width:30px; height:30px; border-radius:7px; background:var(--accent); color:var(--rail);
-  display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; flex:none;
+  width:30px; height:30px; border-radius:7px; background:transparent; object-fit:contain; flex:none;
 }
 .brand-text{display:none; flex-direction:column; line-height:1.25; white-space:nowrap}
 .brand-text b{font-size:14px; font-weight:700}
@@ -413,8 +412,7 @@ input:disabled, select:disabled, textarea:disabled{background:var(--bg); color:v
   padding:24px; text-align:center; background:var(--bg);
 }
 #signinGate .mark{
-  width:56px; height:56px; border-radius:14px; background:var(--accent); color:#fff;
-  display:flex; align-items:center; justify-content:center; font-weight:900; font-size:26px;
+  width:56px; height:56px; border-radius:14px; background:transparent; object-fit:contain;
 }
 #signinGate h1{font-size:18px; margin:0}
 #signinGate p{font-size:12.5px; color:var(--ink-dim); margin:0; max-width:320px}
