@@ -222,7 +222,7 @@
         <datalist id="remarkSuggest">
           <option value="(熱処理前)"></option><option value="(表面処理前)"></option><option value="(研磨前)"></option>
           <option value="(熱処理後)"></option><option value="(表面処理後)"></option><option value="(研磨後)"></option>
-          <option value="(カット品)"></option><option value="測定不可"></option><option value="刃物形状"></option>
+          <option value="(カット品)"></option><option value="測定不可"></option><option value="刃物形状"></option><option value="別紙参照"></option>
           <option value="(ネジ長さ)"></option><option value="(ネジ深さ)"></option>
         </datalist>
 
@@ -1886,8 +1886,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         var item = items[rowIdx];
         if(!item) return;
         var isGauge = !readOnly && GAUGE_METHODS.indexOf(normMethod_(item.method)) >= 0;
-        var remarkText = item.remark || '';
-        var fixedRemarkLabel = remarkText.indexOf('測定不可') >= 0 ? '測定不可' : (remarkText.indexOf('刃物形状') >= 0 ? '刃物形状' : null);
+        var fixedRemarkLabel = fixedRemarkLabelFor_(item.remark);
         for(var s2 = curCount + 1; s2 <= newCount; s2++){
           tr.appendChild(buildMeasCell_(item, s2, isGauge, fixedRemarkLabel, readOnly, null));
         }
@@ -2363,6 +2362,17 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   // 初期値として入れる（編集は可能。既に値があればそちらを優先し上書きしない）
   var GAUGE_METHODS = ['P.G', 'B.G'];
   function normMethod_(m){ return String(m || '').trim().replace(/\.+$/, ''); }
+  // 備考がこれらのいずれかを含む項目は、サンプルごとに実測値を取らず、1つ目の実測値欄に
+  // 備考の文字をそのまま固定表示する（編集不可）。新しい種類を増やす場合はここに足すだけでよい
+  // （2026-11-06に測定不可・刃物形状を追加、2026-11-24に別紙参照を追加）
+  var FIXED_REMARK_LABELS_ = ['測定不可', '刃物形状', '別紙参照'];
+  function fixedRemarkLabelFor_(remarkText){
+    var text = remarkText || '';
+    for(var i=0; i<FIXED_REMARK_LABELS_.length; i++){
+      if(text.indexOf(FIXED_REMARK_LABELS_[i]) >= 0) return FIXED_REMARK_LABELS_[i];
+    }
+    return null;
+  }
   // 円筒度・位置度・対称度・全振れの記号は字形が小さく見づらいので、表示専用のセル
   // （入力欄ではないのでHTMLを使える）では一回り大きく表示する
   function escHtml_(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -2386,7 +2396,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     var td = document.createElement('td'); td.className = 'meas-cell';
     var input = document.createElement('input'); input.className = 'meas'; input.placeholder = '—'; input.dataset.sample = sampleIndex;
     var pv = prefill && prefill[(item.id || item.no)+'_'+sampleIndex];
-    // 「測定不可」「刃物形状」は実測値欄に固定表示するため、基準値欄側には重ねて出さない
+    // FIXED_REMARK_LABELS_の備考は実測値欄に固定表示するため、基準値欄側には重ねて出さない
     // （他の備考（(研磨前)等）はこれまで通り基準値欄に表示する、2026-11-06）
     if(fixedRemarkLabel && sampleIndex === 1){ input.value = fixedRemarkLabel; input.readOnly = true; input.dataset.fixedPass = '1'; }
     else if(pv){ input.value = pv; }
@@ -2403,7 +2413,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     tr.dataset.itemKey = String(item.id || item.no);
     var base = nominalTol(item.base), max = parseTol(item.max), min = parseTol(item.min);
     if(base !== null && max !== null && min !== null){ tr.dataset.base = base; tr.dataset.max = max; tr.dataset.min = min; }
-    var baseRemark = (item.remark || '').split('/').filter(function(r){ return r !== '測定不可' && r !== '刃物形状'; }).join('/');
+    var baseRemark = (item.remark || '').split('/').filter(function(r){ return FIXED_REMARK_LABELS_.indexOf(r) < 0; }).join('/');
     var baseDisplay = item.base + (baseRemark ? '　' + baseRemark : '');
     var noTd = document.createElement('td'); noTd.className = 'num'; noTd.textContent = item.no; tr.appendChild(noTd);
     [baseDisplay, item.max, item.min].forEach(function(v){
@@ -2411,10 +2421,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     });
     var mTd = document.createElement('td'); mTd.className = 'num'; mTd.textContent = item.method; tr.appendChild(mTd);
     var isGauge = !readOnly && GAUGE_METHODS.indexOf(normMethod_(item.method)) >= 0;
-    // 備考が「測定不可」「刃物形状」の項目は、サンプルごとに実測値を取らず、1つ目の
-    // 実測値欄に備考の文字をそのまま固定表示する（編集不可、2026-11-06）
-    var remarkText = item.remark || '';
-    var fixedRemarkLabel = remarkText.indexOf('測定不可') >= 0 ? '測定不可' : (remarkText.indexOf('刃物形状') >= 0 ? '刃物形状' : null);
+    var fixedRemarkLabel = fixedRemarkLabelFor_(item.remark);
     for(var s=1; s<=sampleCount; s++){
       tr.appendChild(buildMeasCell_(item, s, isGauge, fixedRemarkLabel, readOnly, prefill));
     }
@@ -2433,7 +2440,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     var base = nominalTol(item.base), max = parseTol(item.max), min = parseTol(item.min);
     if(base !== null && max !== null && min !== null){ tr.dataset.base = base; tr.dataset.max = max; tr.dataset.min = min; }
     else { delete tr.dataset.base; delete tr.dataset.max; delete tr.dataset.min; }
-    var baseRemark = (item.remark || '').split('/').filter(function(r){ return r !== '測定不可' && r !== '刃物形状'; }).join('/');
+    var baseRemark = (item.remark || '').split('/').filter(function(r){ return FIXED_REMARK_LABELS_.indexOf(r) < 0; }).join('/');
     var baseDisplay = item.base + (baseRemark ? '　' + baseRemark : '');
     var labelCells = tr.querySelectorAll('td.num');
     labelCells[0].textContent = item.no;
@@ -2448,8 +2455,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     var cells = tr.querySelectorAll('td.meas-cell');
     if(sampleCount > cells.length){
       var isGauge = !readOnly && GAUGE_METHODS.indexOf(normMethod_(item.method)) >= 0;
-      var remarkText = item.remark || '';
-      var fixedRemarkLabel = remarkText.indexOf('測定不可') >= 0 ? '測定不可' : (remarkText.indexOf('刃物形状') >= 0 ? '刃物形状' : null);
+      var fixedRemarkLabel = fixedRemarkLabelFor_(item.remark);
       for(var s = cells.length + 1; s <= sampleCount; s++){
         tr.appendChild(buildMeasCell_(item, s, isGauge, fixedRemarkLabel, readOnly, null));
       }
@@ -2545,8 +2551,8 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       tr.querySelectorAll('td.meas-cell').forEach(function(td){
         td.classList.remove('pass','ng');
         var input = td.querySelector('input.meas');
-        // 備考が「測定不可」「刃物形状」の固定表示セルは、数値測定が無いため常に合格扱いにする
-        // (2026-11-06追加)
+        // 備考がFIXED_REMARK_LABELS_の固定表示セルは、数値測定が無いため常に合格扱いにする
+        // (2026-11-06追加、2026-11-24に別紙参照も対象化)
         if(input.dataset.fixedPass){ td.classList.add('pass'); filled++; return; }
         var s = input.value.trim();
         if(!s || isReferenceValue(s)) return;
