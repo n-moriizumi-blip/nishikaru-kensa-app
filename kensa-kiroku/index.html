@@ -2366,14 +2366,17 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   }
 
   // 幾何公差（真直度⏤・平面度⏥・真円度○・円筒度⌭・位置度⌖・同心度/同軸度◎・対称度⌯・
-  // 直角度⊥・円周振れ↗・全振れ⌰）は、基準値欄に記号＋許容値そのものを書く慣習で、
-  // 公差MAX/MINを別途入れない（例:「◎0.02 A」「◎φ0.02」「⊥0.05」）。記号の直後の数値を
-  // 許容値として取り出し、実測値がその値以下（0以上）なら合格として判定できるようにする
-  // （2026-11-25追加。symBtnの記号一覧と同じものを対象にする）
+  // 直角度⊥・円周振れ↗・全振れ⌰）・面粗さ（Ra・Rz・Ry、または三角記号▽▽▽/▽▽/▽・
+  // ∇∇∇/∇∇/∇）は、基準値欄に記号＋許容値そのものを書く慣習で、公差MAX/MINを別途入れない
+  // （例:「◎0.02 A」「◎φ0.02」「⊥0.05」「Ra3.2」「▽▽▽3.2」）。記号の直後の数値を許容値
+  // として取り出し、実測値がその値以下（0以上）なら合格として判定できるようにする
+  // （2026-11-25追加。幾何公差はsymBtnの記号一覧と同じものを対象にする。面粗さも同日追加）
   var GEOM_TOL_SYMBOLS_ = ['⏤','⏥','○','⌭','⌖','◎','⌯','⊥','↗','⌰'];
-  var GEOM_TOL_RE_ = new RegExp('[' + GEOM_TOL_SYMBOLS_.join('') + ']\\s*φ?\\s*(\\d+\\.?\\d*)');
-  function geomTolFromBase_(baseText){
-    var m = String(baseText || '').match(GEOM_TOL_RE_);
+  var MAGNITUDE_TOL_RE_ = new RegExp(
+    '(?:[' + GEOM_TOL_SYMBOLS_.join('') + ']|[Rr][AaZzYy]|[▽∇]{1,3})\\s*φ?\\s*(\\d+\\.?\\d*)'
+  );
+  function magnitudeTolFromBase_(baseText){
+    var m = String(baseText || '').match(MAGNITUDE_TOL_RE_);
     if(!m) return null;
     var v = parseFloat(m[1]);
     return isNaN(v) ? null : v;
@@ -2427,24 +2430,24 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     td.appendChild(input);
     return td;
   }
-  // 項目1件分の<tr>を1から作る（新規項目用）。tr.dataset.itemKeyに項目の固定IDを
-  // 持たせておき、reconcileItemsTable_が後からこの行を再利用できるようにする
-  // judge()が参照する公差データ（dataset.base/max/min、または幾何公差のdataset.geomTol）を
-  // 行にセットする。公差MAX/MINが揃っていればそちらを優先し、揃っていない場合だけ基準値欄の
-  // 幾何公差記号から許容値を拾う（2026-11-25、既存行の再利用時に前の項目のデータが
-  // 残らないよう、該当しない方は必ず消す）
+  // judge()が参照する公差データ（dataset.base/max/min、または幾何公差・面粗さの
+  // dataset.magTol）を行にセットする。公差MAX/MINが揃っていればそちらを優先し、
+  // 揃っていない場合だけ基準値欄の記号から許容値を拾う（2026-11-25、既存行の再利用時に
+  // 前の項目のデータが残らないよう、該当しない方は必ず消す）
   function applyToleranceDataset_(tr, item){
     var base = nominalTol(item.base), max = parseTol(item.max), min = parseTol(item.min);
     if(base !== null && max !== null && min !== null){
       tr.dataset.base = base; tr.dataset.max = max; tr.dataset.min = min;
-      delete tr.dataset.geomTol;
+      delete tr.dataset.magTol;
       return;
     }
     delete tr.dataset.base; delete tr.dataset.max; delete tr.dataset.min;
-    var geomTol = geomTolFromBase_(item.base);
-    if(geomTol !== null){ tr.dataset.geomTol = geomTol; }
-    else { delete tr.dataset.geomTol; }
+    var magTol = magnitudeTolFromBase_(item.base);
+    if(magTol !== null){ tr.dataset.magTol = magTol; }
+    else { delete tr.dataset.magTol; }
   }
+  // 項目1件分の<tr>を1から作る（新規項目用）。tr.dataset.itemKeyに項目の固定IDを
+  // 持たせておき、reconcileItemsTable_が後からこの行を再利用できるようにする
   function buildItemRow_(item, sampleCount, readOnly, prefill){
     var tr = document.createElement('tr');
     tr.dataset.itemKey = String(item.id || item.no);
@@ -2582,8 +2585,8 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var base = parseFloat(tr.dataset.base);
       var hasBase = !isNaN(base);
       var max = parseFloat(tr.dataset.max), min = parseFloat(tr.dataset.min);
-      var geomTol = parseFloat(tr.dataset.geomTol);
-      var hasGeomTol = !isNaN(geomTol);
+      var magTol = parseFloat(tr.dataset.magTol);
+      var hasMagTol = !isNaN(magTol);
       tr.querySelectorAll('td.meas-cell').forEach(function(td){
         td.classList.remove('pass','ng');
         var input = td.querySelector('input.meas');
@@ -2597,13 +2600,13 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         var upper = s.toUpperCase();
         if(upper === 'OK'){ td.classList.add('pass'); filled++; return; }
         if(upper === 'NG'){ td.classList.add('ng'); filled++; ngCount++; return; }
-        // 幾何公差（公差MAX/MINが空欄で、基準値欄の記号から許容値が取れる項目）は
+        // 幾何公差・面粗さ（公差MAX/MINが空欄で、基準値欄の記号から許容値が取れる項目）は
         // 0〜許容値の範囲で合否判定する（2026-11-25追加）
-        if(hasGeomTol){
+        if(hasMagTol){
           var gv = parseTol(s);
           if(gv === null) return;
           filled++;
-          if(gv >= -EPS && gv <= geomTol + EPS){ td.classList.add('pass'); }
+          if(gv >= -EPS && gv <= magTol + EPS){ td.classList.add('pass'); }
           else { td.classList.add('ng'); ngCount++; }
           return;
         }
