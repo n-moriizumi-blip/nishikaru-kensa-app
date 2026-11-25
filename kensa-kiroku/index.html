@@ -339,7 +339,7 @@
           <label class="fl">検査日<input type="date" id="in_date"></label>
           <label class="fl">検査員<input type="text" id="in_inspector" list="inspectorSuggest" placeholder="品質保証課以外の応援の方も氏名を入力できます"><datalist id="inspectorSuggest"></datalist></label>
           <label class="fl">ロット数<input type="text" id="in_lotCount"></label>
-          <label class="fl">抜取数<input type="text" id="in_sampleCount" title="ロット数から自動計算されます（直接変更も可能）"></label>
+          <label class="fl">抜取数<input type="text" id="in_sampleCount" title="新規作成中はロット数から自動計算されます（一度保存すると自動更新は止まり、直接変更のみ可能）"></label>
           <label class="fl">材質/ロットNo.<input type="text" id="in_material"></label>
           <label class="fl">処理<input type="text" id="in_process"></label>
           <label class="fl">ロットNo.<input type="text" id="in_lotNo"></label>
@@ -1919,13 +1919,20 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       adjustSampleColumns_(sampleColsForZuban_(state.inspect.zuban, n), { allowShrink: true });
     }
   });
+  // ロット数からの抜取数自動計算は、まだ一度も保存されていない新規作成の間だけ効く。
+  // 一度でも保存（自動保存・下書き保存のどちらでも）されると記録IDが確定するため、
+  // それ以降はロット数を直してもすでに確定している抜取数を勝手に変えない（抜取数欄
+  // 自体は今まで通りいつでも直接編集できる）。2026-11-25追加
+  function lotCountAutoCalcBlocked_(){
+    return sampleCountTouched || !!(state.inspect && state.inspect.recordId);
+  }
   document.getElementById('in_lotCount').addEventListener('input', function(){
-    if(sampleCountTouched) return;
+    if(lotCountAutoCalcBlocked_()) return;
     var n = sampleCountForLot_(document.getElementById('in_lotCount').value);
     if(n !== null) applySampleCount_(n, { allowShrink: false });
   });
   document.getElementById('in_lotCount').addEventListener('change', function(){
-    if(sampleCountTouched) return;
+    if(lotCountAutoCalcBlocked_()) return;
     var n = sampleCountForLot_(document.getElementById('in_lotCount').value);
     if(n !== null) applySampleCount_(n, { allowShrink: true });
   });
@@ -2358,6 +2365,20 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     return (s.startsWith('(') && s.endsWith(')')) || (s.startsWith('（') && s.endsWith('）'));
   }
 
+  // 幾何公差（真直度⏤・平面度⏥・真円度○・円筒度⌭・位置度⌖・同心度/同軸度◎・対称度⌯・
+  // 直角度⊥・円周振れ↗・全振れ⌰）は、基準値欄に記号＋許容値そのものを書く慣習で、
+  // 公差MAX/MINを別途入れない（例:「◎0.02 A」「◎φ0.02」「⊥0.05」）。記号の直後の数値を
+  // 許容値として取り出し、実測値がその値以下（0以上）なら合格として判定できるようにする
+  // （2026-11-25追加。symBtnの記号一覧と同じものを対象にする）
+  var GEOM_TOL_SYMBOLS_ = ['⏤','⏥','○','⌭','⌖','◎','⌯','⊥','↗','⌰'];
+  var GEOM_TOL_RE_ = new RegExp('[' + GEOM_TOL_SYMBOLS_.join('') + ']\\s*φ?\\s*(\\d+\\.?\\d*)');
+  function geomTolFromBase_(baseText){
+    var m = String(baseText || '').match(GEOM_TOL_RE_);
+    if(!m) return null;
+    var v = parseFloat(m[1]);
+    return isNaN(v) ? null : v;
+  }
+
   // 測定方法がゲージ類（通止で判定するもの）なら、未入力のサンプル1・2に「通」「止」を
   // 初期値として入れる（編集は可能。既に値があればそちらを優先し上書きしない）
   var GAUGE_METHODS = ['P.G', 'B.G'];
@@ -2408,11 +2429,26 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   }
   // 項目1件分の<tr>を1から作る（新規項目用）。tr.dataset.itemKeyに項目の固定IDを
   // 持たせておき、reconcileItemsTable_が後からこの行を再利用できるようにする
+  // judge()が参照する公差データ（dataset.base/max/min、または幾何公差のdataset.geomTol）を
+  // 行にセットする。公差MAX/MINが揃っていればそちらを優先し、揃っていない場合だけ基準値欄の
+  // 幾何公差記号から許容値を拾う（2026-11-25、既存行の再利用時に前の項目のデータが
+  // 残らないよう、該当しない方は必ず消す）
+  function applyToleranceDataset_(tr, item){
+    var base = nominalTol(item.base), max = parseTol(item.max), min = parseTol(item.min);
+    if(base !== null && max !== null && min !== null){
+      tr.dataset.base = base; tr.dataset.max = max; tr.dataset.min = min;
+      delete tr.dataset.geomTol;
+      return;
+    }
+    delete tr.dataset.base; delete tr.dataset.max; delete tr.dataset.min;
+    var geomTol = geomTolFromBase_(item.base);
+    if(geomTol !== null){ tr.dataset.geomTol = geomTol; }
+    else { delete tr.dataset.geomTol; }
+  }
   function buildItemRow_(item, sampleCount, readOnly, prefill){
     var tr = document.createElement('tr');
     tr.dataset.itemKey = String(item.id || item.no);
-    var base = nominalTol(item.base), max = parseTol(item.max), min = parseTol(item.min);
-    if(base !== null && max !== null && min !== null){ tr.dataset.base = base; tr.dataset.max = max; tr.dataset.min = min; }
+    applyToleranceDataset_(tr, item);
     var baseRemark = (item.remark || '').split('/').filter(function(r){ return FIXED_REMARK_LABELS_.indexOf(r) < 0; }).join('/');
     var baseDisplay = item.base + (baseRemark ? '　' + baseRemark : '');
     var noTd = document.createElement('td'); noTd.className = 'num'; noTd.textContent = item.no; tr.appendChild(noTd);
@@ -2437,9 +2473,7 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
   // 既存行（再利用する<tr>）のラベル列（№・基準値・公差MAX/MIN・測定方法）だけを
   // 最新のテンプレート内容に更新する。実測値の入力欄（meas-cell側）には一切触れない
   function updateItemRowLabels_(tr, item){
-    var base = nominalTol(item.base), max = parseTol(item.max), min = parseTol(item.min);
-    if(base !== null && max !== null && min !== null){ tr.dataset.base = base; tr.dataset.max = max; tr.dataset.min = min; }
-    else { delete tr.dataset.base; delete tr.dataset.max; delete tr.dataset.min; }
+    applyToleranceDataset_(tr, item);
     var baseRemark = (item.remark || '').split('/').filter(function(r){ return FIXED_REMARK_LABELS_.indexOf(r) < 0; }).join('/');
     var baseDisplay = item.base + (baseRemark ? '　' + baseRemark : '');
     var labelCells = tr.querySelectorAll('td.num');
@@ -2548,6 +2582,8 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var base = parseFloat(tr.dataset.base);
       var hasBase = !isNaN(base);
       var max = parseFloat(tr.dataset.max), min = parseFloat(tr.dataset.min);
+      var geomTol = parseFloat(tr.dataset.geomTol);
+      var hasGeomTol = !isNaN(geomTol);
       tr.querySelectorAll('td.meas-cell').forEach(function(td){
         td.classList.remove('pass','ng');
         var input = td.querySelector('input.meas');
@@ -2561,6 +2597,16 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
         var upper = s.toUpperCase();
         if(upper === 'OK'){ td.classList.add('pass'); filled++; return; }
         if(upper === 'NG'){ td.classList.add('ng'); filled++; ngCount++; return; }
+        // 幾何公差（公差MAX/MINが空欄で、基準値欄の記号から許容値が取れる項目）は
+        // 0〜許容値の範囲で合否判定する（2026-11-25追加）
+        if(hasGeomTol){
+          var gv = parseTol(s);
+          if(gv === null) return;
+          filled++;
+          if(gv >= -EPS && gv <= geomTol + EPS){ td.classList.add('pass'); }
+          else { td.classList.add('ng'); ngCount++; }
+          return;
+        }
         if(!hasBase) return;
         var v = parseTol(s);
         if(v === null) return;
