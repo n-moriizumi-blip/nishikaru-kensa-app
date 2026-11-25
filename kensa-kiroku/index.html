@@ -2430,18 +2430,31 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
     td.appendChild(input);
     return td;
   }
-  // judge()が参照する公差データ（dataset.base/max/min、または幾何公差・面粗さの
-  // dataset.magTol）を行にセットする。公差MAX/MINが揃っていればそちらを優先し、
-  // 揃っていない場合だけ基準値欄の記号から許容値を拾う（2026-11-25、既存行の再利用時に
-  // 前の項目のデータが残らないよう、該当しない方は必ず消す）
+  // judge()が参照する公差データ（dataset.base/max/min、公差欄の「以上」「以下」による
+  // dataset.base+oneSided、または幾何公差・面粗さのdataset.magTol）を行にセットする。
+  // 優先順位：①公差MAX/MINが両方とも数値で揃っていればそちら、②どちらかの公差欄に
+  // 「以上」「以下」とあれば基準値と直接比較、③どちらでもなければ基準値欄の記号から
+  // 許容値を拾う（2026-11-25、既存行の再利用時に前の項目のデータが残らないよう、
+  // 該当しない方は必ず消す）
   function applyToleranceDataset_(tr, item){
     var base = nominalTol(item.base), max = parseTol(item.max), min = parseTol(item.min);
     if(base !== null && max !== null && min !== null){
       tr.dataset.base = base; tr.dataset.max = max; tr.dataset.min = min;
-      delete tr.dataset.magTol;
+      delete tr.dataset.magTol; delete tr.dataset.oneSided;
       return;
     }
-    delete tr.dataset.base; delete tr.dataset.max; delete tr.dataset.min;
+    delete tr.dataset.max; delete tr.dataset.min;
+    if(base !== null){
+      var maxText = String(item.max || ''), minText = String(item.min || '');
+      var oneSided = (maxText.indexOf('以上') >= 0 || minText.indexOf('以上') >= 0) ? 'ge'
+        : (maxText.indexOf('以下') >= 0 || minText.indexOf('以下') >= 0) ? 'le' : null;
+      if(oneSided){
+        tr.dataset.base = base; tr.dataset.oneSided = oneSided;
+        delete tr.dataset.magTol;
+        return;
+      }
+    }
+    delete tr.dataset.base; delete tr.dataset.oneSided;
     var magTol = magnitudeTolFromBase_(item.base);
     if(magTol !== null){ tr.dataset.magTol = magTol; }
     else { delete tr.dataset.magTol; }
@@ -2585,6 +2598,8 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
       var base = parseFloat(tr.dataset.base);
       var hasBase = !isNaN(base);
       var max = parseFloat(tr.dataset.max), min = parseFloat(tr.dataset.min);
+      var hasRange = hasBase && !isNaN(max) && !isNaN(min);
+      var oneSided = tr.dataset.oneSided; // 'ge'（基準値以上）/'le'（基準値以下）/未設定
       var magTol = parseFloat(tr.dataset.magTol);
       var hasMagTol = !isNaN(magTol);
       tr.querySelectorAll('td.meas-cell').forEach(function(td){
@@ -2610,7 +2625,18 @@ setInterval(function(){ try { google.accounts.id.prompt(); } catch(e){} }, 45 * 
           else { td.classList.add('ng'); ngCount++; }
           return;
         }
-        if(!hasBase) return;
+        // 公差MAX・公差MIN（どちらでもよい）に「以上」「以下」とだけ書かれている場合は、
+        // 基準値の数値と実測値を直接比較する（2026-11-25追加。オフセット計算はしない）
+        if(oneSided && hasBase){
+          var ov = parseTol(s);
+          if(ov === null) return;
+          filled++;
+          var okOneSided = oneSided === 'ge' ? (ov >= base - EPS) : (ov <= base + EPS);
+          if(okOneSided){ td.classList.add('pass'); }
+          else { td.classList.add('ng'); ngCount++; }
+          return;
+        }
+        if(!hasRange) return;
         var v = parseTol(s);
         if(v === null) return;
         filled++;
